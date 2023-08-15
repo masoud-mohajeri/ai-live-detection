@@ -117,8 +117,8 @@ const FaceLandmark: FC = () => {
       shouldProcessCurrentFrame()
     ) {
       lastVideoTime = video.current.currentTime;
-
       results = faceLandmarker?.detectForVideo(video?.current, startTimeMs);
+
       if (results) {
         drawEwsults(results);
         extractUsefulDataFromResults(results);
@@ -136,9 +136,9 @@ const FaceLandmark: FC = () => {
     );
     const formatedResults: Record<string, number> = {};
 
-    for (let item of usefulResults) {
+    usefulResults?.forEach((item) => {
       formatedResults[item.categoryName] = +item.score.toFixed(3);
-    }
+    });
 
     setFaceBlendshapes((prev) => [...prev, formatedResults]);
   };
