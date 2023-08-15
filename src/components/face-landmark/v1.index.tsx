@@ -1,10 +1,10 @@
-/* tslint:disable */
+//https://codepen.io/mediapipe-preview/pen/OJBVQJm
 import { FC, useEffect, useRef, useState } from 'react';
 import { FaceLandmarker, FilesetResolver } from '@mediapipe/tasks-vision';
 
 // import './index.scss';
 
-const Face: FC = () => {
+const FaceLandmark: FC = () => {
   const [inputVideoReady, setInputVideoReady] = useState(false);
   const inputVideoRef = useRef<HTMLVideoElement | null>(null);
 
@@ -97,4 +97,4 @@ const Face: FC = () => {
   );
 };
 
-export default Face;
+export default FaceLandmark;

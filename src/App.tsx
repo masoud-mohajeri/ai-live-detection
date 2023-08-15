@@ -1,8 +1,11 @@
-import React from 'react';
-import Face from './components/Face';
+import FaceLandmark from './components/face-landmark/v2.index';
 
 function App() {
-  return <Face />;
+  return (
+    <>
+      <FaceLandmark />
+    </>
+  );
 }
 
 export default App;
