@@ -1,6 +1,7 @@
 import {
   DrawingUtils,
   FaceLandmarker,
+  FaceLandmarkerResult,
   FilesetResolver,
 } from '@mediapipe/tasks-vision';
 import { type FC, useRef, useEffect, useState } from 'react';
@@ -31,7 +32,9 @@ const FaceLandmark: FC = () => {
   const unprocessedFramesCounter = useRef<number>(0);
   const [webcamRunning, setWebcamRunning] = useState(false);
   const [faceLandmarker, setFaceLandmarker] = useState<FaceLandmarker>();
-  const [faceBlendshapes, setFaceBlendshapes] = useState<any>([]);
+  const [faceBlendshapes, setFaceBlendshapes] = useState<
+    Record<string, number>[]
+  >([]);
 
   const shouldProcessCurrentFrame = () => {
     if (
@@ -116,12 +119,10 @@ const FaceLandmark: FC = () => {
       lastVideoTime = video.current.currentTime;
 
       results = faceLandmarker?.detectForVideo(video?.current, startTimeMs);
-      drawEwsults(results);
-      setFaceBlendshapes(
-        results?.faceBlendshapes?.[0]?.categories?.filter((item) =>
-          reportUsefulKeys.some((rep) => rep === item?.categoryName)
-        )
-      );
+      if (results) {
+        drawEwsults(results);
+        extractUsefulDataFromResults(results);
+      }
     }
 
     if (webcamRunning === true) {
@@ -129,9 +130,22 @@ const FaceLandmark: FC = () => {
     }
   }
 
+  const extractUsefulDataFromResults = (results: FaceLandmarkerResult) => {
+    const usefulResults = results?.faceBlendshapes?.[0]?.categories?.filter(
+      (item) => reportUsefulKeys.some((rep) => rep === item?.categoryName)
+    );
+    const formatedResults: Record<string, number> = {};
+
+    for (let item of usefulResults) {
+      formatedResults[item.categoryName] = +item.score.toFixed(3);
+    }
+
+    setFaceBlendshapes((prev) => [...prev, formatedResults]);
+  };
+
   const startCamera = () => {
     const constraints = {
-      video: true,
+      video: { width: 500, height: 500 },
 
       // facingMode: { exact: 'user' },
       // frameRate: { ideal: 4, max: 5 },
@@ -176,7 +190,7 @@ const FaceLandmark: FC = () => {
     });
   };
 
-  const drawEwsults = (faceLandmarkerResult: any) => {
+  const drawEwsults = (faceLandmarkerResult: FaceLandmarkerResult) => {
     if (!canvasRef.current) return;
     const ctx = canvasRef.current.getContext('2d');
     if (!ctx) return;
