@@ -20,12 +20,14 @@ const reportUsefulKeys = [
   'mouthRollLower',
 ];
 
+// requestAnimationFrame in chrome 60fps and safari ~30fps
 const ProcessFrameRate = 1;
 
 const FaceLandmark: FC = () => {
   const video = useRef<HTMLVideoElement | null>(null);
   const canvasRef = useRef<HTMLCanvasElement | null>(null);
   const frameRate = useRef<number>(30);
+  const frameCounter = useRef<number[]>([]);
   const unprocessedFramesCounter = useRef<number>(0);
   const [webcamRunning, setWebcamRunning] = useState(false);
   const [faceLandmarker, setFaceLandmarker] = useState<FaceLandmarker>();
@@ -44,7 +46,26 @@ const FaceLandmark: FC = () => {
     }
   };
 
+  const countFrameRate = () => {
+    if (
+      frameCounter?.current &&
+      frameCounter?.current?.[frameCounter.current?.length - 1] -
+        frameCounter.current?.[0] >
+        1000
+    ) {
+      console.log(
+        'number of frames in last second:',
+        frameCounter?.current.length
+      );
+      frameCounter.current = [];
+    } else {
+      frameCounter?.current.push(Date.now());
+      requestAnimationFrame(countFrameRate);
+    }
+  };
+
   const faceLandmarkFactory = async () => {
+    // TODO: Add loading
     const filesetResolver = await FilesetResolver.forVisionTasks(
       'https://cdn.jsdelivr.net/npm/@mediapipe/tasks-vision@0.10.3/wasm'
     );
@@ -53,6 +74,9 @@ const FaceLandmark: FC = () => {
       {
         baseOptions: {
           modelAssetPath: `https://storage.googleapis.com/mediapipe-models/face_landmarker/face_landmarker/float16/1/face_landmarker.task`,
+          // it is deligated for cpu but the error in console is just an info and
+          // not a bad practice <- python community
+          // things get really slow when it is on cpu
           delegate: 'GPU',
         },
         outputFaceBlendshapes: true,
@@ -69,6 +93,9 @@ const FaceLandmark: FC = () => {
 
   useEffect(() => {
     faceLandmarkFactory();
+    setTimeout(() => {
+      countFrameRate();
+    }, 3000);
   }, []);
 
   useEffect(() => {
@@ -105,13 +132,26 @@ const FaceLandmark: FC = () => {
   const startCamera = () => {
     const constraints = {
       video: true,
+
+      // facingMode: { exact: 'user' },
       // frameRate: { ideal: 4, max: 5 },
     };
     navigator.mediaDevices.getUserMedia(constraints).then((stream) => {
       if (!video?.current) return;
       video.current.srcObject = stream;
       const currentStream = video.current?.srcObject?.getVideoTracks()?.[0];
-      // currentStream.applyConstraints(constraints).catch(console.log);
+      // currentStream
+      //   .applyConstraints({ facingMode: { exact: 'user' } })
+      //   .catch((error) => {
+      //     console.log('video set constraint error:', error);
+      //   });
+      console.log('current stream info', {
+        getSettings: currentStream.getSettings(),
+        getCapabilities: currentStream.getCapabilities(),
+        getConstraints: currentStream.getConstraints(),
+        kind: currentStream.kind,
+        label: currentStream.label,
+      });
 
       video.current?.addEventListener(
         'loadeddata',
@@ -126,6 +166,10 @@ const FaceLandmark: FC = () => {
             'fps'
           );
           frameRate.current = currentStream?.getSettings()?.frameRate || 30;
+          // this is not working :(
+          // video.current.requestVideoFrameCallback(() => {
+          //   console.log('requestVideoFrameCallback');
+          // });
         },
         { once: true }
       );
