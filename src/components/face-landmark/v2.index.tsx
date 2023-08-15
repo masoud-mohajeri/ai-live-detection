@@ -9,6 +9,12 @@ import styles from './index.module.scss';
 
 let lastVideoTime = -1;
 
+/**
+ * TODO
+ * make list of points for current polygons
+ * calculate area
+ */
+
 const reportUsefulKeys = [
   'eyeBlinkLeft',
   'eyeBlinkRight',
