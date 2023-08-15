@@ -1,9 +1,14 @@
-import { FaceLandmarker, FilesetResolver } from '@mediapipe/tasks-vision';
+import {
+  DrawingUtils,
+  FaceLandmarker,
+  FilesetResolver,
+} from '@mediapipe/tasks-vision';
 import { type FC, useRef, useEffect, useState } from 'react';
 let lastVideoTime = -1;
 
 const FaceLandmark: FC = () => {
   const video = useRef<HTMLVideoElement | null>(null);
+  const canvasRef = useRef<HTMLCanvasElement | null>(null);
   const [webcamRunning, setWebcamRunning] = useState(false);
   const [faceLandmarker, setFaceLandmarker] = useState<FaceLandmarker>();
 
@@ -45,9 +50,9 @@ const FaceLandmark: FC = () => {
       lastVideoTime = video.current.currentTime;
 
       results = faceLandmarker?.detectForVideo(video?.current, startTimeMs);
+      drawEwsults(results);
     }
 
-    // Call this function again to keep predicting when the browser is ready.
     if (webcamRunning === true) {
       window.requestAnimationFrame(predictWebcam);
     }
@@ -60,11 +65,42 @@ const FaceLandmark: FC = () => {
     navigator.mediaDevices.getUserMedia(constraints).then((stream) => {
       if (!video?.current) return;
       video.current.srcObject = stream;
-      video.current.play();
       video.current?.addEventListener('loadeddata', () => {
-        // predictWebcam();
+        predictWebcam();
+        if (!video?.current) return;
+        video.current.play();
       });
     });
+  };
+
+  const drawEwsults = (faceLandmarkerResult: any) => {
+    if (!canvasRef.current) return;
+    const ctx = canvasRef.current.getContext('2d');
+    if (!ctx) return;
+    ctx?.clearRect(0, 0, 500, 500);
+    const drawingUtils = new DrawingUtils(ctx);
+    for (const landmarks of faceLandmarkerResult.faceLandmarks) {
+      drawingUtils.drawConnectors(
+        landmarks,
+        FaceLandmarker.FACE_LANDMARKS_RIGHT_EYE,
+        { color: '#FF3030' }
+      );
+      drawingUtils.drawConnectors(
+        landmarks,
+        FaceLandmarker.FACE_LANDMARKS_LEFT_EYE,
+        { color: '#30FF30' }
+      );
+      drawingUtils.drawConnectors(
+        landmarks,
+        FaceLandmarker.FACE_LANDMARKS_FACE_OVAL,
+        { color: '#E0E0E0' }
+      );
+      drawingUtils.drawConnectors(
+        landmarks,
+        FaceLandmarker.FACE_LANDMARKS_LIPS,
+        { color: '#E0E0E0' }
+      );
+    }
   };
 
   return (
@@ -76,6 +112,12 @@ const FaceLandmark: FC = () => {
         }}
         width={500}
         height={500}
+      />
+      <canvas
+        ref={canvasRef}
+        width={500}
+        height={500}
+        style={{ border: '1px solid black' }}
       />
     </div>
   );
