@@ -1,0 +1,16 @@
+.contatiner {
+  // position: relative;
+  width: 640px;
+  height: 370px;
+  margin-bottom: 30px;
+}
+.video,
+.canvas {
+  position: absolute;
+  left: 30px;
+  top: 30px;
+}
+
+pre {
+  margin-top: 400px;
+}

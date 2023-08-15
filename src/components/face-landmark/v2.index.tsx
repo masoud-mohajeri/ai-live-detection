@@ -5,6 +5,8 @@ import {
   FilesetResolver,
 } from '@mediapipe/tasks-vision';
 import { type FC, useRef, useEffect, useState } from 'react';
+import styles from './index.module.scss';
+
 let lastVideoTime = -1;
 
 const reportUsefulKeys = [
@@ -145,7 +147,7 @@ const FaceLandmark: FC = () => {
 
   const startCamera = () => {
     const constraints = {
-      video: { width: 500, height: 500 },
+      video: { width: 640, height: 370 },
 
       // facingMode: { exact: 'user' },
       // frameRate: { ideal: 4, max: 5 },
@@ -194,9 +196,13 @@ const FaceLandmark: FC = () => {
     if (!canvasRef.current) return;
     const ctx = canvasRef.current.getContext('2d');
     if (!ctx) return;
-    ctx?.clearRect(0, 0, 500, 500);
+    ctx?.clearRect(0, 0, 640, 370);
     const drawingUtils = new DrawingUtils(ctx);
     for (const landmarks of faceLandmarkerResult.faceLandmarks) {
+      console.log(
+        'FaceLandmarker.FACE_LANDMARKS_FACE_OVAL',
+        FaceLandmarker.FACE_LANDMARKS_FACE_OVAL
+      );
       drawingUtils.drawConnectors(
         landmarks,
         FaceLandmarker.FACE_LANDMARKS_RIGHT_EYE,
@@ -221,19 +227,21 @@ const FaceLandmark: FC = () => {
   };
 
   return (
-    <div>
+    <div className={styles.contatiner}>
       <video
+        className={styles.video}
         ref={(element) => {
           video.current = element;
           setWebcamRunning(true);
         }}
-        width={500}
-        height={500}
+        width={640}
+        height={370}
       />
       <canvas
+        className={styles.canvas}
         ref={canvasRef}
-        width={500}
-        height={500}
+        width={640}
+        height={370}
         style={{ border: '1px solid black' }}
       />
       <pre>{JSON.stringify(faceBlendshapes, null, 2)}</pre>
