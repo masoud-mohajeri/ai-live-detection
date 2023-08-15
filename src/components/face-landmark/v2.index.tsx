@@ -6,11 +6,26 @@ import {
 import { type FC, useRef, useEffect, useState } from 'react';
 let lastVideoTime = -1;
 
+const reportUsefulKeys = [
+  'eyeBlinkLeft',
+  'eyeBlinkRight',
+  // baaaaank
+  'jawOpen',
+  // bluuuuuu
+  'mouthPucker',
+  'mouthFunnel',
+  // mmman
+  'mouthShrugLower',
+  'mouthRollUpper',
+  'mouthRollLower',
+];
+
 const FaceLandmark: FC = () => {
   const video = useRef<HTMLVideoElement | null>(null);
   const canvasRef = useRef<HTMLCanvasElement | null>(null);
   const [webcamRunning, setWebcamRunning] = useState(false);
   const [faceLandmarker, setFaceLandmarker] = useState<FaceLandmarker>();
+  const [faceBlendshapes, setFaceBlendshapes] = useState<any>([]);
 
   const faceLandmarkFactory = async () => {
     const filesetResolver = await FilesetResolver.forVisionTasks(
@@ -51,6 +66,11 @@ const FaceLandmark: FC = () => {
 
       results = faceLandmarker?.detectForVideo(video?.current, startTimeMs);
       drawEwsults(results);
+      setFaceBlendshapes(
+        results?.faceBlendshapes?.[0]?.categories?.filter((item) =>
+          reportUsefulKeys.some((rep) => rep === item?.categoryName)
+        )
+      );
     }
 
     if (webcamRunning === true) {
@@ -119,6 +139,7 @@ const FaceLandmark: FC = () => {
         height={500}
         style={{ border: '1px solid black' }}
       />
+      <pre>{JSON.stringify(faceBlendshapes, null, 2)}</pre>
     </div>
   );
 };
