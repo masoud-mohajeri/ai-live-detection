@@ -20,12 +20,29 @@ const reportUsefulKeys = [
   'mouthRollLower',
 ];
 
+const ProcessFrameRate = 1;
+
 const FaceLandmark: FC = () => {
   const video = useRef<HTMLVideoElement | null>(null);
   const canvasRef = useRef<HTMLCanvasElement | null>(null);
+  const frameRate = useRef<number>(30);
+  const unprocessedFramesCounter = useRef<number>(0);
   const [webcamRunning, setWebcamRunning] = useState(false);
   const [faceLandmarker, setFaceLandmarker] = useState<FaceLandmarker>();
   const [faceBlendshapes, setFaceBlendshapes] = useState<any>([]);
+
+  const shouldProcessCurrentFrame = () => {
+    if (
+      unprocessedFramesCounter.current >=
+      frameRate.current / ProcessFrameRate
+    ) {
+      unprocessedFramesCounter.current = 0;
+      return true;
+    } else {
+      unprocessedFramesCounter.current++;
+      return false;
+    }
+  };
 
   const faceLandmarkFactory = async () => {
     const filesetResolver = await FilesetResolver.forVisionTasks(
@@ -40,7 +57,11 @@ const FaceLandmark: FC = () => {
         },
         outputFaceBlendshapes: true,
         runningMode: 'VIDEO',
+        // parameters
         numFaces: 1,
+        minFacePresenceConfidence: 0.5,
+        minFaceDetectionConfidence: 0.5,
+        minTrackingConfidence: 0.5,
       }
     );
     setFaceLandmarker(faceLandmarkerInstance);
@@ -61,7 +82,10 @@ const FaceLandmark: FC = () => {
 
     let startTimeMs = performance.now();
     if (!video?.current) return;
-    if (lastVideoTime !== video.current.currentTime) {
+    if (
+      lastVideoTime !== video.current.currentTime &&
+      shouldProcessCurrentFrame()
+    ) {
       lastVideoTime = video.current.currentTime;
 
       results = faceLandmarker?.detectForVideo(video?.current, startTimeMs);
@@ -81,15 +105,30 @@ const FaceLandmark: FC = () => {
   const startCamera = () => {
     const constraints = {
       video: true,
+      // frameRate: { ideal: 4, max: 5 },
     };
     navigator.mediaDevices.getUserMedia(constraints).then((stream) => {
       if (!video?.current) return;
       video.current.srcObject = stream;
-      video.current?.addEventListener('loadeddata', () => {
-        predictWebcam();
-        if (!video?.current) return;
-        video.current.play();
-      });
+      const currentStream = video.current?.srcObject?.getVideoTracks()?.[0];
+      // currentStream.applyConstraints(constraints).catch(console.log);
+
+      video.current?.addEventListener(
+        'loadeddata',
+        () => {
+          predictWebcam();
+          if (!video?.current) return;
+          video.current.play();
+
+          console.log(
+            'streaming video frame rate:',
+            currentStream.getSettings().frameRate,
+            'fps'
+          );
+          frameRate.current = currentStream?.getSettings()?.frameRate || 30;
+        },
+        { once: true }
+      );
     });
   };
 
