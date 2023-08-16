@@ -30,7 +30,7 @@ const reportUsefulKeys = [
 ];
 
 // requestAnimationFrame in chrome 60fps and safari ~30fps
-const ProcessFrameRate = 1;
+const ProcessFrameRate = 30;
 
 const FaceLandmark: FC = () => {
   const video = useRef<HTMLVideoElement | null>(null);
@@ -93,7 +93,7 @@ const FaceLandmark: FC = () => {
         outputFaceBlendshapes: true,
         runningMode: 'VIDEO',
         // parameters
-        numFaces: 1,
+        numFaces: 3, // there are more that 1 person in video
         minFacePresenceConfidence: 0.5,
         minFaceDetectionConfidence: 0.5,
         minTrackingConfidence: 0.5,
@@ -204,11 +204,17 @@ const FaceLandmark: FC = () => {
     if (!ctx) return;
     ctx?.clearRect(0, 0, 640, 370);
     const drawingUtils = new DrawingUtils(ctx);
+    // console.log(
+    //   'FaceLandmarker.FACE_LANDMARKS_FACE_OVAL',
+    //   {FACE_LANDMARKS_FACE_OVAL:FaceLandmarker.FACE_LANDMARKS_FACE_OVAL,
+    //     faceLandmarks:faceLandmarkerResult.faceLandmarks
+    //   }
+    // );
+    // there are more that 1 person in video
+    if(faceLandmarkerResult.faceLandmarks.length>1){
+      console.log('there are more that 1 person in video')
+    }
     for (const landmarks of faceLandmarkerResult.faceLandmarks) {
-      console.log(
-        'FaceLandmarker.FACE_LANDMARKS_FACE_OVAL',
-        FaceLandmarker.FACE_LANDMARKS_FACE_OVAL
-      );
       drawingUtils.drawConnectors(
         landmarks,
         FaceLandmarker.FACE_LANDMARKS_RIGHT_EYE,
