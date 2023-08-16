@@ -18,6 +18,9 @@ let lastVideoTime = -1
  * calculate area
  *
  * add a debounce for starting to process -> 100ms
+ *
+ * separate different parts and make it more scalable
+ * add audio
  */
 
 const reportUsefulKeys = [
@@ -200,7 +203,6 @@ const FaceLandmark: FC = () => {
       video.current?.addEventListener(
         'loadeddata',
         () => {
-          predictWebcam()
           if (!video?.current) return
           video.current.play()
 
@@ -210,6 +212,7 @@ const FaceLandmark: FC = () => {
           // video.current.requestVideoFrameCallback(() => {
           //   console.log('requestVideoFrameCallback');
           // });
+          predictWebcam()
         },
         { once: true },
       )
