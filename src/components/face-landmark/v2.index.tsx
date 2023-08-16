@@ -30,7 +30,7 @@ const reportUsefulKeys = [
 ];
 
 // requestAnimationFrame in chrome 60fps and safari ~30fps
-const ProcessFrameRate = 30;
+const ProcessFrameRate = 6;
 
 const FaceLandmark: FC = () => {
   const video = useRef<HTMLVideoElement | null>(null);
@@ -61,8 +61,8 @@ const FaceLandmark: FC = () => {
     if (
       frameCounter?.current &&
       frameCounter?.current?.[frameCounter.current?.length - 1] -
-        frameCounter.current?.[0] >
-        1000
+      frameCounter.current?.[0] >
+      1000
     ) {
       console.log(
         'number of frames in last second:',
@@ -104,9 +104,7 @@ const FaceLandmark: FC = () => {
 
   useEffect(() => {
     faceLandmarkFactory();
-    setTimeout(() => {
-      countFrameRate();
-    }, 3000);
+    countFrameRate();
   }, []);
 
   useEffect(() => {
@@ -152,7 +150,7 @@ const FaceLandmark: FC = () => {
   };
 
   const startCamera = () => {
-    const constraints = {
+    const constraints = { 
       video: { width: 640, height: 370 },
 
       // facingMode: { exact: 'user' },
@@ -167,13 +165,13 @@ const FaceLandmark: FC = () => {
       //   .catch((error) => {
       //     console.log('video set constraint error:', error);
       //   });
-      console.log('current stream info', {
-        getSettings: currentStream.getSettings(),
-        getCapabilities: currentStream.getCapabilities(),
-        getConstraints: currentStream.getConstraints(),
-        kind: currentStream.kind,
-        label: currentStream.label,
-      });
+      // console.log('current stream info', {
+      //   getSettings: currentStream.getSettings(),
+      //   getCapabilities: currentStream.getCapabilities(),
+      //   getConstraints: currentStream.getConstraints(),
+      //   kind: currentStream.kind,
+      //   label: currentStream.label,
+      // });
 
       video.current?.addEventListener(
         'loadeddata',
@@ -211,7 +209,7 @@ const FaceLandmark: FC = () => {
     //   }
     // );
     // there are more that 1 person in video
-    if(faceLandmarkerResult.faceLandmarks.length>1){
+    if (faceLandmarkerResult.faceLandmarks.length > 1) {
       console.log('there are more that 1 person in video')
     }
     for (const landmarks of faceLandmarkerResult.faceLandmarks) {
