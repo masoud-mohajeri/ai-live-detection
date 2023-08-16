@@ -8,7 +8,7 @@ import {
 import { type FC, useRef, useEffect, useState } from 'react'
 import styles from './index.module.scss'
 import { FacePartsPolygon, videoHeight, videoWidth } from './constants'
-import { calculatePolygonArea } from './utils'
+// import { calculatePolygonArea } from './utils'
 
 let lastVideoTime = -1
 
@@ -16,6 +16,8 @@ let lastVideoTime = -1
  * TODO
  * make list of points for current polygons
  * calculate area
+ *
+ * add a debounce for starting to process -> 100ms
  */
 
 const reportUsefulKeys = [
@@ -33,7 +35,7 @@ const reportUsefulKeys = [
 ]
 
 // requestAnimationFrame in chrome 60fps and safari ~30fps
-const ProcessFrameRate = 6
+const ProcessFrameRate = 10
 
 const FaceLandmark: FC = () => {
   const video = useRef<HTMLVideoElement | null>(null)
@@ -43,13 +45,15 @@ const FaceLandmark: FC = () => {
   const unprocessedFramesCounter = useRef<number>(0)
   const [webcamRunning, setWebcamRunning] = useState(false)
   const [faceLandmarker, setFaceLandmarker] = useState<FaceLandmarker>()
-  const [faceBlendshapes, setFaceBlendshapes] = useState<Record<string, number>[]>([])
+  const [extractedData, setExtractedData] = useState<{}[]>([])
 
   const shouldProcessCurrentFrame = () => {
-    if (unprocessedFramesCounter.current >= frameRate.current / ProcessFrameRate) {
+    if (unprocessedFramesCounter.current >= ProcessFrameRate) {
+      console.log('frame processed')
       unprocessedFramesCounter.current = 0
       return true
     } else {
+      console.log('frame passed')
       unprocessedFramesCounter.current++
       return false
     }
@@ -94,10 +98,13 @@ const FaceLandmark: FC = () => {
 
   useEffect(() => {
     faceLandmarkFactory()
-    countFrameRate()
+    setInterval(() => {
+      countFrameRate()
+    }, 3000)
   }, [])
 
   useEffect(() => {
+    // change to a ref and an state???
     if (webcamRunning && faceLandmarker) {
       startCamera()
     }
@@ -123,8 +130,7 @@ const FaceLandmark: FC = () => {
 
         if (results.faceLandmarks.length === 1) {
           console.log('there is only 1 person in video')
-          calculateAreas(results.faceLandmarks[0])
-          extractFaceBlendshapeData(results)
+          extractUsefulData(results)
         }
         drawResults(results)
       }
@@ -135,16 +141,6 @@ const FaceLandmark: FC = () => {
     }
   }
 
-  const calculateAreas = (results: NormalizedLandmark[]) => {
-    // console.log('results', results)
-    const faceArea = calculatePolygonArea(pickPolygonPoints(results, FacePartsPolygon.faceOval))
-    const leftEyeArea = calculatePolygonArea(pickPolygonPoints(results, FacePartsPolygon.leftEye))
-    const rightEyeArea = calculatePolygonArea(pickPolygonPoints(results, FacePartsPolygon.rightEye))
-    const lipsArea = calculatePolygonArea(pickPolygonPoints(results, FacePartsPolygon.lips))
-    console.log('Areas', { faceArea, rightEyeArea, leftEyeArea, lipsArea })
-    // console.log('FaceLandmarker.FACE_LANDMARKS_FACE_OVAL', FaceLandmarker.FACE_LANDMARKS_FACE_OVAL)
-  }
-
   const pickPolygonPoints = (polygon: NormalizedLandmark[], demandedIndexes: number[]) => {
     const results = []
     for (let key of demandedIndexes) {
@@ -153,7 +149,7 @@ const FaceLandmark: FC = () => {
     return results
   }
 
-  const extractFaceBlendshapeData = (results: FaceLandmarkerResult) => {
+  const extractUsefulData = (results: FaceLandmarkerResult) => {
     const usefulResults = results?.faceBlendshapes?.[0]?.categories?.filter((item) =>
       reportUsefulKeys.some((rep) => rep === item?.categoryName),
     )
@@ -162,8 +158,19 @@ const FaceLandmark: FC = () => {
     usefulResults?.forEach((item) => {
       formattedResults[item.categoryName] = +item.score.toFixed(3)
     })
+    const coordinates = extractPolygonsCoordinates(results.faceLandmarks[0])
 
-    setFaceBlendshapes((prev) => [...prev, formattedResults])
+    setExtractedData((prev) => [...prev, { coordinates, formattedResults }])
+  }
+
+  const extractPolygonsCoordinates = (results: NormalizedLandmark[]) => {
+    // console.log('results', results)
+    const faceCoordinates = pickPolygonPoints(results, FacePartsPolygon.faceOval)
+    const leftEyeCoordinates = pickPolygonPoints(results, FacePartsPolygon.leftEye)
+    const rightEyeCoordinates = pickPolygonPoints(results, FacePartsPolygon.rightEye)
+    const lipsCoordinates = pickPolygonPoints(results, FacePartsPolygon.lips)
+    return { faceCoordinates, rightEyeCoordinates, leftEyeCoordinates, lipsCoordinates }
+    // console.log('FaceLandmarker.FACE_LANDMARKS_FACE_OVAL', FaceLandmarker.FACE_LANDMARKS_FACE_OVAL)
   }
 
   const startCamera = () => {
@@ -242,7 +249,7 @@ const FaceLandmark: FC = () => {
         height={videoHeight}
         style={{ border: '1px solid black' }}
       />
-      <pre>{JSON.stringify(faceBlendshapes, null, 2)}</pre>
+      {/* <pre>{JSON.stringify(extractedData, null, 2)}</pre> */}
     </div>
   )
 }
