@@ -1,217 +1,107 @@
-import {
-  DrawingUtils,
-  FaceLandmarker,
-  FaceLandmarkerResult,
-  FilesetResolver,
-  NormalizedLandmark,
-} from '@mediapipe/tasks-vision'
+import { DrawingUtils, FaceLandmarker, FaceLandmarkerResult } from '@mediapipe/tasks-vision'
 import { type FC, useRef, useEffect, useState } from 'react'
 import styles from './index.module.scss'
-import { FacePartsPolygon, videoHeight, videoWidth } from './constants'
-// import { calculatePolygonArea } from './utils'
-
-let lastVideoTime = -1
-
-/**
- * TODO
- * make list of points for current polygons
- * calculate area
- *
- * add a debounce for starting to process -> 100ms
- *
- * separate different parts and make it more scalable
- * add audio
- */
-
-const reportUsefulKeys = [
-  'eyeBlinkLeft',
-  'eyeBlinkRight',
-  // baaaaank
-  'jawOpen',
-  // bluuuuuu
-  'mouthPucker',
-  'mouthFunnel',
-  // mmman
-  'mouthShrugLower',
-  'mouthRollUpper',
-  'mouthRollLower',
-]
-
-// requestAnimationFrame in chrome 60fps and safari ~30fps
-const ProcessFrameRate = 10
+import { videoHeight, videoWidth } from './constants'
+import useVideoLandmark from '../../hooks/useVideoLandmark'
 
 const FaceLandmark: FC = () => {
   const video = useRef<HTMLVideoElement | null>(null)
   const canvasRef = useRef<HTMLCanvasElement | null>(null)
   const frameRate = useRef<number>(30)
-  const frameCounter = useRef<number[]>([])
-  const unprocessedFramesCounter = useRef<number>(0)
   const [webcamRunning, setWebcamRunning] = useState(false)
-  const [faceLandmarker, setFaceLandmarker] = useState<FaceLandmarker>()
-  const [extractedData, setExtractedData] = useState<{}[]>([])
+  // const [audioClassifier, setAudioClassifier] = useState<AudioClassifier>()
 
-  const shouldProcessCurrentFrame = () => {
-    if (unprocessedFramesCounter.current >= ProcessFrameRate) {
-      console.log('frame processed')
-      unprocessedFramesCounter.current = 0
-      return true
-    } else {
-      console.log('frame passed')
-      unprocessedFramesCounter.current++
-      return false
-    }
-  }
+  const { predictWebcam, setIsCameraReady, video: videoRef } = useVideoLandmark(drawResults)
 
-  const countFrameRate = () => {
-    if (
-      frameCounter?.current &&
-      frameCounter?.current?.[frameCounter.current?.length - 1] - frameCounter.current?.[0] > 1000
-    ) {
-      console.log('number of frames in last second:', frameCounter?.current.length)
-      frameCounter.current = []
-    } else {
-      frameCounter?.current.push(Date.now())
-      requestAnimationFrame(countFrameRate)
-    }
-  }
+  // const audioDetectionFactory = async () => {
+  //   try {
+  //     const audio = await AudioFilesetResolver.forAudioTasks('https://cdn.jsdelivr.net/npm/@mediapipe/tasks-audio/wasm')
+  //     const audioClassifierInstance = await AudioClassifier.createFromOptions(audio, {
+  //       baseOptions: {
+  //         // TODO: is it really necessary ?
+  //         modelAssetPath: 'https://tfhub.dev/google/lite-model/yamnet/classification/tflite/1?lite-format=tflite',
+  //         delegate: 'GPU',
+  //       },
+  //       maxResults: 3,
+  //       scoreThreshold: 0.2,
+  //     })
+  //     setAudioClassifier(audioClassifierInstance)
+  //   } catch (error) {
+  //     console.error('audio model error:', error)
+  //   }
+  // }
 
-  const faceLandmarkFactory = async () => {
-    // TODO: Add loading
-    const filesetResolver = await FilesetResolver.forVisionTasks(
-      'https://cdn.jsdelivr.net/npm/@mediapipe/tasks-vision@0.10.3/wasm',
-    )
-    const faceLandmarkerInstance = await FaceLandmarker.createFromOptions(filesetResolver, {
-      baseOptions: {
-        modelAssetPath: `https://storage.googleapis.com/mediapipe-models/face_landmarker/face_landmarker/float16/1/face_landmarker.task`,
-        // it is deligated for cpu but the error in console is just an info and
-        // not a bad practice <- python community
-        // things get really slow when it is on cpu
-        delegate: 'GPU',
-      },
-      outputFaceBlendshapes: true,
-      runningMode: 'VIDEO',
-      // parameters
-      numFaces: 3, // there are more that 1 person in video
-      minFacePresenceConfidence: 0.5,
-      minFaceDetectionConfidence: 0.5,
-      minTrackingConfidence: 0.5,
-    })
-    setFaceLandmarker(faceLandmarkerInstance)
-  }
-
-  useEffect(() => {
-    faceLandmarkFactory()
-    setInterval(() => {
-      countFrameRate()
-    }, 3000)
-  }, [])
+  // useEffect(() => {
+  // faceLandmarkFactory()
+  // console.log('audioDetectionFactory')
+  // audioDetectionFactory()
+  // setInterval(() => {
+  //   countFrameRate()
+  // }, 3000)
+  // }, [])
 
   useEffect(() => {
     // change to a ref and an state???
-    if (webcamRunning && faceLandmarker) {
+    // if (webcamRunning && faceLandmarker && audioClassifier) {
+    if (webcamRunning) {
       startCamera()
-    }
-  }, [faceLandmarker, webcamRunning])
-
-  async function predictWebcam() {
-    let results
-
-    let startTimeMs = performance.now()
-    if (!video?.current) return
-    if (lastVideoTime !== video.current.currentTime && shouldProcessCurrentFrame()) {
-      lastVideoTime = video.current.currentTime
-      results = faceLandmarker?.detectForVideo(video?.current, startTimeMs)
-
-      if (results) {
-        if (results.faceLandmarks.length === 0) {
-          console.log('no face detected')
-        }
-
-        if (results.faceLandmarks.length > 1) {
-          console.log('there are more that 1 person in video')
-        }
-
-        if (results.faceLandmarks.length === 1) {
-          console.log('there is only 1 person in video')
-          extractUsefulData(results)
-        }
-        drawResults(results)
-      }
+      // startAudio()
     }
 
-    if (webcamRunning === true) {
-      window.requestAnimationFrame(predictWebcam)
-    }
-  }
+    // if (audioClassifier) {
+    //   console.log('startAudio')
+    //   startAudio()
+    // }
+  }, [webcamRunning])
 
-  const pickPolygonPoints = (polygon: NormalizedLandmark[], demandedIndexes: number[]) => {
-    const results = []
-    for (let key of demandedIndexes) {
-      results.push(polygon[key])
-    }
-    return results
-  }
+  // const processAudio = async (stream: MediaStream) => {
+  //   // if (!audioCtx) {
+  //   // TODO: audioCtx should be in upper scop for suspending it in future features
+  //   // } else if (audioCtx.state === 'running') {
+  //   //   await audioCtx.suspend()
+  //   //   streamingBt.firstElementChild.innerHTML = 'START CLASSIFYING'
+  //   //   return
+  //   // }
 
-  const extractUsefulData = (results: FaceLandmarkerResult) => {
-    const usefulResults = results?.faceBlendshapes?.[0]?.categories?.filter((item) =>
-      reportUsefulKeys.some((rep) => rep === item?.categoryName),
-    )
-    const formattedResults: Record<string, number> = {}
+  //   // const stream = await navigator.mediaDevices.getUserMedia({ audio: true })
+  //   const audioCtx = new AudioContext({ sampleRate: 16000 })
 
-    usefulResults?.forEach((item) => {
-      formattedResults[item.categoryName] = +item.score.toFixed(3)
-    })
-    const coordinates = extractPolygonsCoordinates(results.faceLandmarks[0])
+  //   const source = audioCtx.createMediaStreamSource(stream)
+  //   const scriptNode = audioCtx.createScriptProcessor(16384, 1, 1)
+  //   console.log('process audio 3')
+  //   scriptNode.onaudioprocess = function (audioProcessingEvent) {
+  //     console.log('scriptNode.onaudioprocess')
 
-    setExtractedData((prev) => [...prev, { coordinates, formattedResults }])
-  }
+  //     const inputBuffer = audioProcessingEvent.inputBuffer
+  //     let inputData = inputBuffer.getChannelData(0)
 
-  const extractPolygonsCoordinates = (results: NormalizedLandmark[]) => {
-    // console.log('results', results)
-    const faceCoordinates = pickPolygonPoints(results, FacePartsPolygon.faceOval)
-    const leftEyeCoordinates = pickPolygonPoints(results, FacePartsPolygon.leftEye)
-    const rightEyeCoordinates = pickPolygonPoints(results, FacePartsPolygon.rightEye)
-    const lipsCoordinates = pickPolygonPoints(results, FacePartsPolygon.lips)
-    return { faceCoordinates, rightEyeCoordinates, leftEyeCoordinates, lipsCoordinates }
-    // console.log('FaceLandmarker.FACE_LANDMARKS_FACE_OVAL', FaceLandmarker.FACE_LANDMARKS_FACE_OVAL)
-  }
+  //     // Classify the audio
+  //     if (!audioClassifier) return
+  //     const result = audioClassifier.classify(inputData)
+  //     const categories = result[0].classifications[0].categories
+  //     console.log('categories', categories)
+  //   }
+  // }
 
   const startCamera = () => {
     const constraints = {
       video: { width: videoWidth, height: videoHeight },
-
-      // facingMode: { exact: 'user' },
-      // frameRate: { ideal: 4, max: 5 },
+      audio: true,
     }
     navigator.mediaDevices.getUserMedia(constraints).then((stream) => {
       if (!video?.current) return
       video.current.srcObject = stream
+      if (!videoRef?.current) return
+      videoRef.current.srcObject = stream
       const currentStream = video.current?.srcObject?.getVideoTracks()?.[0]
-      // currentStream
-      //   .applyConstraints({ facingMode: { exact: 'user' } })
-      //   .catch((error) => {
-      //     console.log('video set constraint error:', error);
-      //   });
-      // console.log('current stream info', {
-      //   getSettings: currentStream.getSettings(),
-      //   getCapabilities: currentStream.getCapabilities(),
-      //   getConstraints: currentStream.getConstraints(),
-      //   kind: currentStream.kind,
-      //   label: currentStream.label,
-      // });
 
       video.current?.addEventListener(
         'loadeddata',
         () => {
           if (!video?.current) return
           video.current.play()
-
-          console.log('streaming video frame rate:', currentStream.getSettings().frameRate, 'fps')
           frameRate.current = currentStream?.getSettings()?.frameRate || 30
-          // this is not working :(
-          // video.current.requestVideoFrameCallback(() => {
-          //   console.log('requestVideoFrameCallback');
-          // });
+
           predictWebcam()
         },
         { once: true },
@@ -219,7 +109,15 @@ const FaceLandmark: FC = () => {
     })
   }
 
-  const drawResults = (faceLandmarkerResult: FaceLandmarkerResult) => {
+  // const startAudio = () => {
+  //   const constraints = {
+  //     audio: true,
+  //   }
+  //   navigator.mediaDevices.getUserMedia(constraints).then((stream) => {
+  //     processAudio(stream)
+  //   })
+  // }
+  function drawResults(faceLandmarkerResult: FaceLandmarkerResult) {
     if (!canvasRef.current) return
     const ctx = canvasRef.current.getContext('2d')
     if (!ctx) return
@@ -241,6 +139,7 @@ const FaceLandmark: FC = () => {
         ref={(element) => {
           video.current = element
           setWebcamRunning(true)
+          setIsCameraReady(true)
         }}
         width={videoWidth}
         height={videoHeight}
