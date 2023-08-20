@@ -34,11 +34,11 @@ const ProcessFrameRate = 10
 
 const useVideoLandmark = (onResult: (arg: FaceLandmarkerResult) => void) => {
   const [faceLandmarker, setFaceLandmarker] = useState<FaceLandmarker>()
-  const [isCameraReady, setIsCameraReady] = useState<boolean>(true)
+  const [isVideoAnalyzerReady, setIsVideoAnalyzerReady] = useState<boolean>(false)
   const unprocessedFramesCounter = useRef<number>(0)
-  const video = useRef<HTMLVideoElement | null>(null)
 
   const faceLandmarkFactory = async () => {
+    console.log('faceLandmarkFactory')
     try {
       // TODO: Add loading
       const vision = await FilesetResolver.forVisionTasks(
@@ -63,6 +63,7 @@ const useVideoLandmark = (onResult: (arg: FaceLandmarkerResult) => void) => {
         minTrackingConfidence: 0.5,
       })
       setFaceLandmarker(faceLandmarkerInstance)
+      setIsVideoAnalyzerReady(true)
     } catch (error) {
       console.error('landmark model error', error)
     }
@@ -83,15 +84,14 @@ const useVideoLandmark = (onResult: (arg: FaceLandmarkerResult) => void) => {
       return false
     }
   }
-
-  async function predictWebcam() {
+  // because of forward ref
+  async function predictWebcam(video: HTMLVideoElement) {
+    console.log('call predictWebcam')
     let startTimeMs = performance.now()
-    if (faceLandmarker && video.current && lastVideoTime !== video.current.currentTime && shouldProcessCurrentFrame()) {
-      console.log('call predictWebcam')
-      lastVideoTime = video.current.currentTime
-      let results = faceLandmarker?.detectForVideo(video.current, startTimeMs)
+    if (faceLandmarker && video && lastVideoTime !== video.currentTime && shouldProcessCurrentFrame()) {
+      lastVideoTime = video.currentTime
+      let results = faceLandmarker?.detectForVideo(video, startTimeMs)
 
-      console.log('results', results)
       if (results) {
         if (results.faceLandmarks.length === 0) {
           console.log('no face detected')
@@ -116,9 +116,9 @@ const useVideoLandmark = (onResult: (arg: FaceLandmarkerResult) => void) => {
       // })
     }
 
-    if (isCameraReady === true) {
-      window.requestAnimationFrame(predictWebcam)
-    }
+    // if (isCameraReady === true) {
+    //   window.requestAnimationFrame(predictWebcam)
+    // }
   }
 
   const pickPolygonPoints = (polygon: NormalizedLandmark[], demandedIndexes: number[]) => {
@@ -148,12 +148,12 @@ const useVideoLandmark = (onResult: (arg: FaceLandmarkerResult) => void) => {
     })
 
     const coordinates = extractPolygonsCoordinates(results.faceLandmarks[0])
-    console.log('coordinates', coordinates)
+    // console.log('coordinates', coordinates)
 
     // setExtractedData((prev) => [...prev, { coordinates, formattedResults }])
   }
 
-  return { predictWebcam, setIsCameraReady, video }
+  return { predictWebcam, isVideoAnalyzerReady }
 }
 
 export default useVideoLandmark

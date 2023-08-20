@@ -8,10 +8,12 @@ const FaceLandmark: FC = () => {
   const video = useRef<HTMLVideoElement | null>(null)
   const canvasRef = useRef<HTMLCanvasElement | null>(null)
   const frameRate = useRef<number>(30)
-  const [webcamRunning, setWebcamRunning] = useState(false)
+  const [isVideoElementReady, setIsVideoElementReady] = useState(false)
+  const [isStreamReady, setIsStreamReady] = useState(false)
+
   // const [audioClassifier, setAudioClassifier] = useState<AudioClassifier>()
 
-  const { predictWebcam, setIsCameraReady, video: videoRef } = useVideoLandmark(drawResults)
+  const { predictWebcam, isVideoAnalyzerReady } = useVideoLandmark(drawResults)
 
   // const audioDetectionFactory = async () => {
   //   try {
@@ -41,18 +43,8 @@ const FaceLandmark: FC = () => {
   // }, [])
 
   useEffect(() => {
-    // change to a ref and an state???
-    // if (webcamRunning && faceLandmarker && audioClassifier) {
-    if (webcamRunning) {
-      startCamera()
-      // startAudio()
-    }
-
-    // if (audioClassifier) {
-    //   console.log('startAudio')
-    //   startAudio()
-    // }
-  }, [webcamRunning])
+    startCamera()
+  }, [isVideoElementReady])
 
   // const processAudio = async (stream: MediaStream) => {
   //   // if (!audioCtx) {
@@ -83,30 +75,46 @@ const FaceLandmark: FC = () => {
   //   }
   // }
 
+  const analyzeVideo = () => {
+    if (!video?.current) return
+    predictWebcam(video.current)
+    requestAnimationFrame(analyzeVideo)
+  }
+
+  useEffect(() => {
+    if (isVideoAnalyzerReady && isStreamReady) {
+      analyzeVideo()
+    }
+  }, [isVideoAnalyzerReady, isStreamReady])
+
+  // can all this function become a giant promise ?
   const startCamera = () => {
     const constraints = {
       video: { width: videoWidth, height: videoHeight },
       audio: true,
     }
-    navigator.mediaDevices.getUserMedia(constraints).then((stream) => {
-      if (!video?.current) return
-      video.current.srcObject = stream
-      if (!videoRef?.current) return
-      videoRef.current.srcObject = stream
-      const currentStream = video.current?.srcObject?.getVideoTracks()?.[0]
+    // TODO: convert it to async/await
+    navigator.mediaDevices
+      .getUserMedia(constraints)
+      .then((stream) => {
+        if (!video?.current) return
+        video.current.srcObject = stream
+        const currentStream = video.current?.srcObject?.getVideoTracks()?.[0]
 
-      video.current?.addEventListener(
-        'loadeddata',
-        () => {
-          if (!video?.current) return
-          video.current.play()
-          frameRate.current = currentStream?.getSettings()?.frameRate || 30
-
-          predictWebcam()
-        },
-        { once: true },
-      )
-    })
+        video.current?.addEventListener(
+          'loadeddata',
+          () => {
+            if (!video?.current) return
+            video.current.play()
+            frameRate.current = currentStream?.getSettings()?.frameRate || 30
+            setIsStreamReady(true)
+          },
+          { once: true },
+        )
+      })
+      .catch((error) => {
+        console.log('error in getting user media', error)
+      })
   }
 
   // const startAudio = () => {
@@ -138,8 +146,7 @@ const FaceLandmark: FC = () => {
         className={styles.video}
         ref={(element) => {
           video.current = element
-          setWebcamRunning(true)
-          setIsCameraReady(true)
+          setIsVideoElementReady(true)
         }}
         width={videoWidth}
         height={videoHeight}
