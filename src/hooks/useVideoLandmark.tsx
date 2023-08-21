@@ -123,8 +123,9 @@ const useVideoLandmark = ({ canvasElement, videoElement, onResult }: VideoLandma
       const brightness = (r + g + b) / 3
       sum += brightness
     }
-
-    console.log('image sum', sum / (videoHeight * videoWidth))
+    const lightAverage = sum / (videoHeight * videoWidth)
+    console.log('image sum', lightAverage)
+    return lightAverage
   }
 
   // because of forward ref
@@ -145,10 +146,10 @@ const useVideoLandmark = ({ canvasElement, videoElement, onResult }: VideoLandma
 
         if (results.faceLandmarks.length === 1) {
           console.log('there is only 1 person in video')
-          extractUsefulData(results)
         }
-        checkBrightness()
-
+        const lightAverage = checkBrightness()
+        const usefullData = extractUsefulData(results)
+        console.log('results', { usefullData, lightAverage })
         onResult && onResult(results)
       }
     } else {
@@ -193,8 +194,8 @@ const useVideoLandmark = ({ canvasElement, videoElement, onResult }: VideoLandma
 
     const coordinates = extractPolygonsCoordinates(results.faceLandmarks[0])
     // console.log('coordinates', coordinates)
-
     // setExtractedData((prev) => [...prev, { coordinates, formattedResults }])
+    return { coordinates, formattedResults }
   }
 
   const startProcess = () => {
