@@ -10,29 +10,19 @@ const FaceLandmark: FC = () => {
   const canvasRef = useRef<HTMLCanvasElement | null>(null)
   const [isVideoElementReady, setIsVideoElementReady] = useState(false)
   const [isStreamReady, setIsStreamReady] = useState(false)
-  const { predictWebcam, isVideoAnalyzerReady, setVideoStreamFrameRate } = useVideoLandmark(drawResults)
+  const { isVideoAnalyzerReady, setVideoStreamFrameRate, startProcess, stopProcess } = useVideoLandmark({
+    onResult: drawResults,
+    videoElement: video.current,
+    canvasElement: canvasRef.current,
+  })
 
   useEffect(() => {
     startCamera()
   }, [isVideoElementReady])
 
-  const analyzeVideo = () => {
-    // check to continue or not
-    if (!video?.current) return
-    predictWebcam(video.current)
-    video.current.requestVideoFrameCallback((now, metadata) => {
-      // console.log('requestVideoFrameCallback', { now, metadata })
-      analyzeVideo()
-    })
-    // requestAnimationFrame(analyzeVideo)
-    if ('requestVideoFrameCallback' in HTMLVideoElement.prototype) {
-      // The API is supported!
-    }
-  }
-
   useEffect(() => {
     if (isVideoAnalyzerReady && isStreamReady) {
-      analyzeVideo()
+      startProcess()
     }
   }, [isVideoAnalyzerReady, isStreamReady])
 

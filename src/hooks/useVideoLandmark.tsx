@@ -6,7 +6,8 @@ import {
   NormalizedLandmark,
 } from '@mediapipe/tasks-vision'
 import { useEffect, useRef, useState } from 'react'
-import { FacePartsPolygon } from '../components/face-landmark/constants'
+import { FacePartsPolygon, videoHeight, videoWidth } from '../components/face-landmark/constants'
+import { calculateSampleRate } from './calculateSampleRate'
 
 /**
  * TODO
@@ -30,13 +31,43 @@ const reportUsefulKeys = [
   'mouthRollUpper',
   'mouthRollLower',
 ]
-const ProcessFrameRate = 1
 
-const useVideoLandmark = (onResult: (arg: FaceLandmarkerResult) => void) => {
+type VideoLandmarkParamerters = {
+  onResult?: (arg: FaceLandmarkerResult) => void
+  videoElement: HTMLVideoElement | null
+  canvasElement: HTMLCanvasElement | null
+}
+// pass element or ref ??????
+const useVideoLandmark = ({ canvasElement, videoElement, onResult }: VideoLandmarkParamerters) => {
   const [faceLandmarker, setFaceLandmarker] = useState<FaceLandmarker>()
   const [isVideoAnalyzerReady, setIsVideoAnalyzerReady] = useState<boolean>(false)
-  const unprocessedFramesCounter = useRef<number>(0)
-  const [videoStreamframeRate, setVideoStreamFrameRate] = useState(ProcessFrameRate * ProcessFrameRate)
+  const [videoStreamframeRate, setVideoStreamFrameRate] = useState(30)
+  const [isProcessActive, setIsProcessActive] = useState(false)
+
+  const { shouldProcessCurrentFrame } = calculateSampleRate({
+    samplingFrameRate: 1,
+    videoStreamframeRate: videoStreamframeRate,
+  })
+
+  const analyzeVideo = () => {
+    // check to continue or not
+    if (isProcessActive) {
+      if (!videoElement) return
+      predictWebcam()
+      if ('requestVideoFrameCallback' in HTMLVideoElement.prototype) {
+        videoElement.requestVideoFrameCallback(analyzeVideo)
+      } else {
+        // no polyfill yet
+        // requestAnimationFrame(analyzeVideo)
+      }
+    }
+  }
+
+  useEffect(() => {
+    if (isProcessActive) {
+      analyzeVideo()
+    }
+  }, [isProcessActive])
 
   const faceLandmarkFactory = async () => {
     console.log('faceLandmarkFactory')
@@ -74,23 +105,34 @@ const useVideoLandmark = (onResult: (arg: FaceLandmarkerResult) => void) => {
     faceLandmarkFactory()
   }, [])
 
-  const shouldProcessCurrentFrame = () => {
-    if (unprocessedFramesCounter.current >= videoStreamframeRate / ProcessFrameRate) {
-      // console.log('frame processed')
-      unprocessedFramesCounter.current = 0
-      return true
-    } else {
-      // console.log('frame passed')
-      unprocessedFramesCounter.current++
-      return false
+  const checkBrightness = () => {
+    if (!canvasElement || !videoElement) return
+    const context = canvasElement.getContext('2d')
+    if (!videoElement || !context) return
+
+    context.drawImage(videoElement, 0, 0, videoWidth, videoHeight)
+    const imageData = context.getImageData(0, 0, videoWidth, videoHeight)
+    const data = imageData.data
+
+    let sum = 0
+    for (let i = 0; i < data.length; i += 4) {
+      const r = data[i]
+      const g = data[i + 1]
+      const b = data[i + 2]
+      // Calculate brightness using average pixel value (simple approach)
+      const brightness = (r + g + b) / 3
+      sum += brightness
     }
+
+    console.log('image sum', sum / (videoHeight * videoWidth))
   }
+
   // because of forward ref
-  async function predictWebcam(video: HTMLVideoElement) {
+  async function predictWebcam() {
     let startTimeMs = performance.now()
-    if (faceLandmarker && video && lastVideoTime !== video.currentTime && shouldProcessCurrentFrame()) {
-      lastVideoTime = video.currentTime
-      let results = faceLandmarker?.detectForVideo(video, startTimeMs)
+    if (faceLandmarker && videoElement && lastVideoTime !== videoElement.currentTime && shouldProcessCurrentFrame()) {
+      lastVideoTime = videoElement.currentTime
+      let results = faceLandmarker?.detectForVideo(videoElement, startTimeMs)
 
       if (results) {
         if (results.faceLandmarks.length === 0) {
@@ -105,7 +147,9 @@ const useVideoLandmark = (onResult: (arg: FaceLandmarkerResult) => void) => {
           console.log('there is only 1 person in video')
           extractUsefulData(results)
         }
-        onResult(results)
+        checkBrightness()
+
+        onResult && onResult(results)
       }
     } else {
       // console.log('predictWebcam else block', {
@@ -153,7 +197,14 @@ const useVideoLandmark = (onResult: (arg: FaceLandmarkerResult) => void) => {
     // setExtractedData((prev) => [...prev, { coordinates, formattedResults }])
   }
 
-  return { predictWebcam, isVideoAnalyzerReady, setVideoStreamFrameRate }
+  const startProcess = () => {
+    setIsProcessActive(true)
+  }
+  const stopProcess = () => {
+    setIsProcessActive(false)
+  }
+
+  return { predictWebcam, isVideoAnalyzerReady, setVideoStreamFrameRate, startProcess, stopProcess }
 }
 
 export default useVideoLandmark
