@@ -2,10 +2,8 @@ import { DrawingUtils, FaceLandmarker, FaceLandmarkerResult } from '@mediapipe/t
 import { type FC, useRef, useEffect, useState } from 'react'
 import styles from './index.module.scss'
 import { videoHeight, videoWidth } from './constants'
-import useAudioClassifier from '../../hooks/useAudioClassifier'
+// import useAudioClassifier from '../../hooks/useAudioClassifier'
 import useVideoLandmark from '../../hooks/useVideoLandmark'
-
-// https://stackoverflow.com/questions/74087777/how-to-use-2-mediapipe-models-using-react
 
 const FaceLandmark: FC = () => {
   const video = useRef<HTMLVideoElement | null>(null)
@@ -14,74 +12,53 @@ const FaceLandmark: FC = () => {
   const [isVideoElementReady, setIsVideoElementReady] = useState(false)
   const [isStreamReady, setIsStreamReady] = useState(false)
 
-  // const [audioClassifier, setAudioClassifier] = useState<AudioClassifier>()
+  const { predictWebcam, isVideoAnalyzerReady } = useVideoLandmark(drawResults)
 
-  // const { predictWebcam, isVideoAnalyzerReady } = useVideoLandmark(drawResults)
-  const { processAudio, isAudioClassifierReady } = useAudioClassifier()
-
-  // useEffect(() => {
-  //   startCamera()
-  // }, [isVideoElementReady])
-
-  // const analyzeVideo = () => {
-  //   // check to continue or not
-  //   if (!video?.current) return
-  //   predictWebcam(video.current)
-  //   requestAnimationFrame(analyzeVideo)
-  // }
-
-  // useEffect(() => {
-  //   if (isVideoAnalyzerReady && isStreamReady) {
-  //     analyzeVideo()
-  //   }
-  // }, [isVideoAnalyzerReady, isStreamReady])
   useEffect(() => {
-    if (isAudioClassifierReady) {
-      // startCamera()
-    }
-  }, [isAudioClassifierReady])
+    startCamera()
+  }, [isVideoElementReady])
 
-  // useEffect(() => {
-  //   if (isStreamReady && isAudioClassifierReady && video?.current?.srcObject) {
-  //     //  lib.dom.d.ts
-  //     // type MediaProvider = MediaStream | MediaSource | Blob;
-  //     console.log('calling processAudio')
-  //     processAudio(video.current.srcObject as MediaStream)
-  //   }
-  // }, [isAudioClassifierReady, isStreamReady])
-
-  // can all this function become a giant promise ?
-  const startCamera = () => {
-    const constraints = {
-      video: { width: videoWidth, height: videoHeight },
-      audio: true,
-    }
-    // TODO: convert it to async/await
-    navigator.mediaDevices
-      .getUserMedia(constraints)
-      .then((stream) => {
-        if (!video?.current) return
-        video.current.srcObject = stream
-
-        const currentStream = video.current?.srcObject?.getVideoTracks()?.[0]
-
-        video.current?.addEventListener(
-          'loadeddata',
-          () => {
-            if (!video?.current) return
-            video.current.play()
-            frameRate.current = currentStream?.getSettings()?.frameRate || 30
-            setIsStreamReady(true)
-            processAudio(stream)
-          },
-          { once: true },
-        )
-      })
-      .catch((error) => {
-        console.log('error in getting user media', error)
-      })
+  const analyzeVideo = () => {
+    // check to continue or not
+    if (!video?.current) return
+    predictWebcam(video.current)
+    requestAnimationFrame(analyzeVideo)
   }
 
+  useEffect(() => {
+    if (isVideoAnalyzerReady && isStreamReady) {
+      analyzeVideo()
+    }
+  }, [isVideoAnalyzerReady, isStreamReady])
+
+  // can all this function become a giant promise ?
+  const startCamera = async () => {
+    const constraints = {
+      video: { width: videoWidth, height: videoHeight },
+    }
+    try {
+      const stream = await navigator.mediaDevices.getUserMedia(constraints)
+      if (!video?.current) return
+      video.current.srcObject = stream
+
+      const currentStream = video.current?.srcObject?.getVideoTracks()?.[0]
+
+      video.current?.addEventListener(
+        'loadeddata',
+        () => {
+          if (!video?.current) return
+          video.current.play()
+          frameRate.current = currentStream?.getSettings()?.frameRate || 30
+          setIsStreamReady(true)
+        },
+        { once: true },
+      )
+    } catch (error) {
+      console.log('error in getting user media', error)
+    }
+  }
+
+  // useed only in dev
   function drawResults(faceLandmarkerResult: FaceLandmarkerResult) {
     if (!canvasRef.current) return
     const ctx = canvasRef.current.getContext('2d')

@@ -1,5 +1,6 @@
 import { AudioClassifier, FilesetResolver } from '@mediapipe/tasks-audio'
 import { useEffect, useState } from 'react'
+// https://stackoverflow.com/questions/74087777/how-to-use-2-mediapipe-models-using-react
 
 const useAudioClassifier = () => {
   const [audioClassifier, setAudioClassifier] = useState<AudioClassifier>()
@@ -38,23 +39,29 @@ const useAudioClassifier = () => {
     // }
     try {
       console.log('stream', stream)
-      const audioCtx = new AudioContext({ sampleRate: 16000 })
+      // const audioCtx = new AudioContext({ sampleRate: 16000 })
 
-      const source = audioCtx.createMediaStreamSource(stream)
-      const scriptNode = audioCtx.createScriptProcessor(16384, 1, 1)
-      console.log('process audio 3')
-      scriptNode.onaudioprocess = function (audioProcessingEvent) {
-        console.log('scriptNode.onaudioprocess')
+      // const source = audioCtx.createMediaStreamSource(stream)
+      //[depricated]
+      // const scriptNode = audioCtx.createScriptProcessor(16384, 1, 1)
+      // console.log('process audio 3')
+      // scriptNode.onaudioprocess = function (audioProcessingEvent) {
+      //   console.log('scriptNode.onaudioprocess')
 
-        const inputBuffer = audioProcessingEvent.inputBuffer
-        let inputData = inputBuffer.getChannelData(0)
+      //   const inputBuffer = audioProcessingEvent.inputBuffer
+      //   let inputData = inputBuffer.getChannelData(0)
 
-        // Classify the audio
-        if (!audioClassifier) return
-        const result = audioClassifier.classify(inputData)
-        const categories = result[0].classifications[0].categories
-        console.log('categories', categories)
-      }
+      //   // Classify the audio
+      //   if (!audioClassifier) return
+      //   const result = audioClassifier.classify(inputData)
+      //   const categories = result[0].classifications[0].categories
+      //   console.log('categories', categories)
+      // }
+
+      const audioContext = new AudioContext()
+      const source = audioContext.createMediaStreamSource(stream)
+      await audioContext.resume()
+      await audioContext.audioWorklet.addModule('./audio.js')
     } catch (error) {
       console.log('error in processing audio ', error)
     }
