@@ -2,7 +2,10 @@ import { DrawingUtils, FaceLandmarker, FaceLandmarkerResult } from '@mediapipe/t
 import { type FC, useRef, useEffect, useState } from 'react'
 import styles from './index.module.scss'
 import { videoHeight, videoWidth } from './constants'
+import useAudioClassifier from '../../hooks/useAudioClassifier'
 import useVideoLandmark from '../../hooks/useVideoLandmark'
+
+// https://stackoverflow.com/questions/74087777/how-to-use-2-mediapipe-models-using-react
 
 const FaceLandmark: FC = () => {
   const video = useRef<HTMLVideoElement | null>(null)
@@ -13,79 +16,39 @@ const FaceLandmark: FC = () => {
 
   // const [audioClassifier, setAudioClassifier] = useState<AudioClassifier>()
 
-  const { predictWebcam, isVideoAnalyzerReady } = useVideoLandmark(drawResults)
+  // const { predictWebcam, isVideoAnalyzerReady } = useVideoLandmark(drawResults)
+  const { processAudio, isAudioClassifierReady } = useAudioClassifier()
 
-  // const audioDetectionFactory = async () => {
-  //   try {
-  //     const audio = await AudioFilesetResolver.forAudioTasks('https://cdn.jsdelivr.net/npm/@mediapipe/tasks-audio/wasm')
-  //     const audioClassifierInstance = await AudioClassifier.createFromOptions(audio, {
-  //       baseOptions: {
-  //         // TODO: is it really necessary ?
-  //         modelAssetPath: 'https://tfhub.dev/google/lite-model/yamnet/classification/tflite/1?lite-format=tflite',
-  //         delegate: 'GPU',
-  //       },
-  //       maxResults: 3,
-  //       scoreThreshold: 0.2,
-  //     })
-  //     setAudioClassifier(audioClassifierInstance)
-  //   } catch (error) {
-  //     console.error('audio model error:', error)
-  //   }
+  // useEffect(() => {
+  //   startCamera()
+  // }, [isVideoElementReady])
+
+  // const analyzeVideo = () => {
+  //   // check to continue or not
+  //   if (!video?.current) return
+  //   predictWebcam(video.current)
+  //   requestAnimationFrame(analyzeVideo)
   // }
 
   // useEffect(() => {
-  // faceLandmarkFactory()
-  // console.log('audioDetectionFactory')
-  // audioDetectionFactory()
-  // setInterval(() => {
-  //   countFrameRate()
-  // }, 3000)
-  // }, [])
-
-  useEffect(() => {
-    startCamera()
-  }, [isVideoElementReady])
-
-  // const processAudio = async (stream: MediaStream) => {
-  //   // if (!audioCtx) {
-  //   // TODO: audioCtx should be in upper scop for suspending it in future features
-  //   // } else if (audioCtx.state === 'running') {
-  //   //   await audioCtx.suspend()
-  //   //   streamingBt.firstElementChild.innerHTML = 'START CLASSIFYING'
-  //   //   return
-  //   // }
-
-  //   // const stream = await navigator.mediaDevices.getUserMedia({ audio: true })
-  //   const audioCtx = new AudioContext({ sampleRate: 16000 })
-
-  //   const source = audioCtx.createMediaStreamSource(stream)
-  //   const scriptNode = audioCtx.createScriptProcessor(16384, 1, 1)
-  //   console.log('process audio 3')
-  //   scriptNode.onaudioprocess = function (audioProcessingEvent) {
-  //     console.log('scriptNode.onaudioprocess')
-
-  //     const inputBuffer = audioProcessingEvent.inputBuffer
-  //     let inputData = inputBuffer.getChannelData(0)
-
-  //     // Classify the audio
-  //     if (!audioClassifier) return
-  //     const result = audioClassifier.classify(inputData)
-  //     const categories = result[0].classifications[0].categories
-  //     console.log('categories', categories)
+  //   if (isVideoAnalyzerReady && isStreamReady) {
+  //     analyzeVideo()
   //   }
-  // }
-
-  const analyzeVideo = () => {
-    if (!video?.current) return
-    predictWebcam(video.current)
-    requestAnimationFrame(analyzeVideo)
-  }
-
+  // }, [isVideoAnalyzerReady, isStreamReady])
   useEffect(() => {
-    if (isVideoAnalyzerReady && isStreamReady) {
-      analyzeVideo()
+    if (isAudioClassifierReady) {
+      // startCamera()
     }
-  }, [isVideoAnalyzerReady, isStreamReady])
+  }, [isAudioClassifierReady])
+
+  // useEffect(() => {
+  //   if (isStreamReady && isAudioClassifierReady && video?.current?.srcObject) {
+  //     //  lib.dom.d.ts
+  //     // type MediaProvider = MediaStream | MediaSource | Blob;
+  //     console.log('calling processAudio')
+  //     processAudio(video.current.srcObject as MediaStream)
+  //   }
+  // }, [isAudioClassifierReady, isStreamReady])
 
   // can all this function become a giant promise ?
   const startCamera = () => {
@@ -99,6 +62,7 @@ const FaceLandmark: FC = () => {
       .then((stream) => {
         if (!video?.current) return
         video.current.srcObject = stream
+
         const currentStream = video.current?.srcObject?.getVideoTracks()?.[0]
 
         video.current?.addEventListener(
@@ -108,6 +72,7 @@ const FaceLandmark: FC = () => {
             video.current.play()
             frameRate.current = currentStream?.getSettings()?.frameRate || 30
             setIsStreamReady(true)
+            processAudio(stream)
           },
           { once: true },
         )
@@ -117,14 +82,6 @@ const FaceLandmark: FC = () => {
       })
   }
 
-  // const startAudio = () => {
-  //   const constraints = {
-  //     audio: true,
-  //   }
-  //   navigator.mediaDevices.getUserMedia(constraints).then((stream) => {
-  //     processAudio(stream)
-  //   })
-  // }
   function drawResults(faceLandmarkerResult: FaceLandmarkerResult) {
     if (!canvasRef.current) return
     const ctx = canvasRef.current.getContext('2d')
