@@ -30,12 +30,13 @@ const reportUsefulKeys = [
   'mouthRollUpper',
   'mouthRollLower',
 ]
-const ProcessFrameRate = 10
+const ProcessFrameRate = 1
 
 const useVideoLandmark = (onResult: (arg: FaceLandmarkerResult) => void) => {
   const [faceLandmarker, setFaceLandmarker] = useState<FaceLandmarker>()
   const [isVideoAnalyzerReady, setIsVideoAnalyzerReady] = useState<boolean>(false)
   const unprocessedFramesCounter = useRef<number>(0)
+  const [videoStreamframeRate, setVideoStreamFrameRate] = useState(ProcessFrameRate * ProcessFrameRate)
 
   const faceLandmarkFactory = async () => {
     console.log('faceLandmarkFactory')
@@ -74,19 +75,18 @@ const useVideoLandmark = (onResult: (arg: FaceLandmarkerResult) => void) => {
   }, [])
 
   const shouldProcessCurrentFrame = () => {
-    if (unprocessedFramesCounter.current >= ProcessFrameRate) {
-      console.log('frame processed')
+    if (unprocessedFramesCounter.current >= videoStreamframeRate / ProcessFrameRate) {
+      // console.log('frame processed')
       unprocessedFramesCounter.current = 0
       return true
     } else {
-      console.log('frame passed')
+      // console.log('frame passed')
       unprocessedFramesCounter.current++
       return false
     }
   }
   // because of forward ref
   async function predictWebcam(video: HTMLVideoElement) {
-    console.log('call predictWebcam')
     let startTimeMs = performance.now()
     if (faceLandmarker && video && lastVideoTime !== video.currentTime && shouldProcessCurrentFrame()) {
       lastVideoTime = video.currentTime
@@ -153,7 +153,7 @@ const useVideoLandmark = (onResult: (arg: FaceLandmarkerResult) => void) => {
     // setExtractedData((prev) => [...prev, { coordinates, formattedResults }])
   }
 
-  return { predictWebcam, isVideoAnalyzerReady }
+  return { predictWebcam, isVideoAnalyzerReady, setVideoStreamFrameRate }
 }
 
 export default useVideoLandmark

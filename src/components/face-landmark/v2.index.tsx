@@ -8,11 +8,9 @@ import useVideoLandmark from '../../hooks/useVideoLandmark'
 const FaceLandmark: FC = () => {
   const video = useRef<HTMLVideoElement | null>(null)
   const canvasRef = useRef<HTMLCanvasElement | null>(null)
-  const frameRate = useRef<number>(30)
   const [isVideoElementReady, setIsVideoElementReady] = useState(false)
   const [isStreamReady, setIsStreamReady] = useState(false)
-
-  const { predictWebcam, isVideoAnalyzerReady } = useVideoLandmark(drawResults)
+  const { predictWebcam, isVideoAnalyzerReady, setVideoStreamFrameRate } = useVideoLandmark(drawResults)
 
   useEffect(() => {
     startCamera()
@@ -22,7 +20,14 @@ const FaceLandmark: FC = () => {
     // check to continue or not
     if (!video?.current) return
     predictWebcam(video.current)
-    requestAnimationFrame(analyzeVideo)
+    video.current.requestVideoFrameCallback((now, metadata) => {
+      // console.log('requestVideoFrameCallback', { now, metadata })
+      analyzeVideo()
+    })
+    // requestAnimationFrame(analyzeVideo)
+    if ('requestVideoFrameCallback' in HTMLVideoElement.prototype) {
+      // The API is supported!
+    }
   }
 
   useEffect(() => {
@@ -48,7 +53,7 @@ const FaceLandmark: FC = () => {
         () => {
           if (!video?.current) return
           video.current.play()
-          frameRate.current = currentStream?.getSettings()?.frameRate || 30
+          setVideoStreamFrameRate(currentStream?.getSettings()?.frameRate || 30)
           setIsStreamReady(true)
         },
         { once: true },

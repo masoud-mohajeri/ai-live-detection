@@ -1611,11 +1611,6 @@
   resolved "https://registry.npmjs.org/@leichtgewicht/ip-codec/-/ip-codec-2.0.4.tgz"
   integrity sha512-Hcv+nVC0kZnQ3tD9GVu5xSMR4VVYOteQIr/hwFPVEvPdlXqgGEuRjiheChHgdM+JyqdgNcmzZOX/tnl0JOiI7A==
 
-"@mediapipe/camera_utils@^0.3.1675466862":
-  version "0.3.1675466862"
-  resolved "https://registry.npmjs.org/@mediapipe/camera_utils/-/camera_utils-0.3.1675466862.tgz"
-  integrity sha512-siuXBoUxWo9WL0MeAxIxvxY04bvbtdNl7uCxoJxiAiRtNnCYrurr7Vl5VYQ94P7Sq0gVq6PxIDhWWeZ/pLnSzw==
-
 "@mediapipe/drawing_utils@^0.3.1675466124":
   version "0.3.1675466124"
   resolved "https://registry.npmjs.org/@mediapipe/drawing_utils/-/drawing_utils-0.3.1675466124.tgz"
