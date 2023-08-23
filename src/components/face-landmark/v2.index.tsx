@@ -87,6 +87,8 @@ const FaceLandmark: FC = () => {
         height={videoHeight}
         style={{ border: '1px solid black' }}
       />
+      <button onClick={startProcess}>startProcess</button>
+      <button onClick={stopProcess}>stopProcess</button>
       {/* <pre>{JSON.stringify(extractedData, null, 2)}</pre> */}
     </div>
   )

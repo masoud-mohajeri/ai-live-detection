@@ -10,11 +10,11 @@ export const calculateSampleRate = ({ videoStreamframeRate, samplingFrameRate }:
 
   const shouldProcessCurrentFrame = () => {
     if (unprocessedFramesCounter >= videoStreamframeRate / samplingFrameRate) {
-      console.log('frame processed')
+      // console.log('frame processed')
       unprocessedFramesCounter = 0
       return true
     } else {
-      console.log('frame passed')
+      // console.log('frame passed')
       unprocessedFramesCounter++
       return false
     }
@@ -22,4 +22,3 @@ export const calculateSampleRate = ({ videoStreamframeRate, samplingFrameRate }:
 
   return { shouldProcessCurrentFrame }
 }
-
