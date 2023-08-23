@@ -45,10 +45,11 @@ const useVideoLandmark = ({ canvasElement, videoElement, onResult }: VideoLandma
   const [videoStreamframeRate, setVideoStreamFrameRate] = useState(30)
   // const [isProcessActive , setIsProcessActive] = useState({ value: false })
   const isProcessActive = useRef<boolean>(false)
+  const [result, setResult] = useState<any[]>([])
 
   const { shouldProcessCurrentFrame } = calculateSampleRate({
     // each blink takes ~100ms and 10 fps is a appropriate number
-    samplingFrameRate: 1,
+    samplingFrameRate: 12,
     videoStreamframeRate: videoStreamframeRate,
   })
 
@@ -154,7 +155,21 @@ const useVideoLandmark = ({ canvasElement, videoElement, onResult }: VideoLandma
         }
         const lightAverage = checkBrightness()
         const usefulData = extractUsefulData(results)
-        console.log('results', { ...usefulData, lightAverage, numberOfFaces: results?.faceLandmarks?.length })
+        //@ts
+        const data = {
+          ...usefulData,
+          modelOut: usefulData?.formattedResults,
+          lightAverage,
+          numberOfFaces: results?.faceLandmarks?.length,
+        }
+        console.log('results', data)
+        setResult((prev) => {
+          if (prev?.length > 50) {
+            prev.shift()
+            return [...prev, data]
+          }
+          return [...prev, data]
+        })
         onResult && onResult(results)
       }
     } else {
@@ -232,7 +247,7 @@ const useVideoLandmark = ({ canvasElement, videoElement, onResult }: VideoLandma
     isProcessActive.current = false
   }
 
-  return { isVideoAnalyzerReady, setVideoStreamFrameRate, startProcess, stopProcess }
+  return { isVideoAnalyzerReady, setVideoStreamFrameRate, startProcess, stopProcess, result }
 }
 
 export default useVideoLandmark
