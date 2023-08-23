@@ -42,32 +42,34 @@ const useVideoLandmark = ({ canvasElement, videoElement, onResult }: VideoLandma
   const [faceLandmarker, setFaceLandmarker] = useState<FaceLandmarker>()
   const [isVideoAnalyzerReady, setIsVideoAnalyzerReady] = useState<boolean>(false)
   const [videoStreamframeRate, setVideoStreamFrameRate] = useState(30)
-  const [isProcessActive, setIsProcessActive] = useState(false)
+  const [isProcessActive, setIsProcessActive] = useState({ value: false })
+  console.log('component isProcessActive', isProcessActive)
 
   const { shouldProcessCurrentFrame } = calculateSampleRate({
     samplingFrameRate: 1,
     videoStreamframeRate: videoStreamframeRate,
   })
 
-  const analyzeVideo = () => {
+  function analyzeVideo() {
+    console.log('analyzeVideo isProcessActive', isProcessActive)
     // check to continue or not
-    if (isProcessActive) {
-      if (!videoElement) return
-      predictWebcam()
-      if ('requestVideoFrameCallback' in HTMLVideoElement.prototype) {
-        videoElement.requestVideoFrameCallback(analyzeVideo)
-      } else {
-        // no polyfill yet
-        // requestAnimationFrame(analyzeVideo)
-      }
+    if (!isProcessActive.value) return
+    if (!videoElement) return
+    predictWebcam()
+
+    if ('requestVideoFrameCallback' in HTMLVideoElement.prototype) {
+      videoElement.requestVideoFrameCallback(analyzeVideo)
+    } else {
+      // no polyfill yet
+      // requestAnimationFrame(analyzeVideo)
     }
   }
 
-  useEffect(() => {
-    if (isProcessActive) {
-      analyzeVideo()
-    }
-  }, [isProcessActive])
+  // useEffect(() => {
+  //   if (isProcessActive) {
+  //     analyzeVideo()
+  //   }
+  // }, [isProcessActive])
 
   const faceLandmarkFactory = async () => {
     console.log('faceLandmarkFactory')
@@ -132,12 +134,14 @@ const useVideoLandmark = ({ canvasElement, videoElement, onResult }: VideoLandma
   async function predictWebcam() {
     let startTimeMs = performance.now()
     if (faceLandmarker && videoElement && lastVideoTime !== videoElement.currentTime && shouldProcessCurrentFrame()) {
+      // TODO: what the hell is this ?
       lastVideoTime = videoElement.currentTime
       let results = faceLandmarker?.detectForVideo(videoElement, startTimeMs)
 
       if (results) {
         if (results.faceLandmarks.length === 0) {
           console.log('no face detected')
+          return
         }
 
         if (results.faceLandmarks.length > 1) {
@@ -191,21 +195,25 @@ const useVideoLandmark = ({ canvasElement, videoElement, onResult }: VideoLandma
     usefulResults?.forEach((item) => {
       formattedResults[item.categoryName] = +item.score.toFixed(3)
     })
-
     const coordinates = extractPolygonsCoordinates(results.faceLandmarks[0])
-    // console.log('coordinates', coordinates)
-    // setExtractedData((prev) => [...prev, { coordinates, formattedResults }])
     return { coordinates, formattedResults }
   }
 
   const startProcess = () => {
-    setIsProcessActive(true)
+    setIsProcessActive({ value: true })
+    // console.log('isProcessActive', isProcessActive)
+    // setTimeout(() => {
+    analyzeVideo()
+    console.log('setTimeout analyzeVideo')
+    // }, 1000)
+    console.log('start process')
   }
   const stopProcess = () => {
-    setIsProcessActive(false)
+    setIsProcessActive({ value: false })
+    console.log('stop process', isProcessActive)
   }
 
-  return { predictWebcam, isVideoAnalyzerReady, setVideoStreamFrameRate, startProcess, stopProcess }
+  return { isVideoAnalyzerReady, setVideoStreamFrameRate, startProcess, stopProcess }
 }
 
 export default useVideoLandmark
