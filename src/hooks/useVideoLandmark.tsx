@@ -91,7 +91,7 @@ const useVideoLandmark = ({ canvasElement, videoElement, onResult }: VideoLandma
           // things get really slow when it is on cpu
           delegate: 'GPU',
         },
-        outputFaceBlendshapes: true,
+        outputFaceBlendshapes: false,
         runningMode: 'VIDEO',
         // parameters
         numFaces: 3, // there are more that 1 person in video

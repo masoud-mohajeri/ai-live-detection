@@ -2,7 +2,8 @@ import { DrawingUtils, FaceLandmarker, FaceLandmarkerResult } from '@mediapipe/t
 import { type FC, useRef, useEffect, useState } from 'react'
 import styles from './index.module.scss'
 import { videoHeight, videoWidth } from './constants'
-// import useAudioClassifier from '../../hooks/useAudioClassifier'
+import useAudioClassifier from '../../hooks/useAudioClassifier'
+import useVideoLandmark from '../../hooks/useVideoLandmark'
 
 const FaceLandmark: FC = () => {
   const video = useRef<HTMLVideoElement | null>(null)
@@ -10,9 +11,20 @@ const FaceLandmark: FC = () => {
   const [isVideoElementReady, setIsVideoElementReady] = useState(false)
   const [isStreamReady, setIsStreamReady] = useState(false)
 
+  const { isVideoAnalyzerReady, setVideoStreamFrameRate, startProcess, stopProcess, result } = useVideoLandmark({
+    onResult: drawResults,
+    videoElement: video.current,
+    canvasElement: canvasRef.current,
+  })
+  const { isAudioClassifierReady, processAudio } = useAudioClassifier()
+
   useEffect(() => {
     startCamera()
   }, [isVideoElementReady])
+
+  useEffect(() => {
+    if (isVideoElementReady && isAudioClassifierReady) startCamera()
+  }, [isVideoElementReady, isAudioClassifierReady])
 
   // can all this function become a giant promise ?
   const startCamera = async () => {
@@ -33,6 +45,7 @@ const FaceLandmark: FC = () => {
           video.current.play()
           // setVideoStreamFrameRate(currentStream?.getSettings()?.frameRate || 30)
           setIsStreamReady(true)
+          // processAudio(stream)
         },
         { once: true },
       )
