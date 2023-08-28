@@ -43,24 +43,28 @@ const useVideoLandmark = ({ canvasElement, videoElement, onResult }: VideoLandma
   const [faceLandmarker, setFaceLandmarker] = useState<FaceLandmarker>()
   const [isVideoAnalyzerReady, setIsVideoAnalyzerReady] = useState<boolean>(false)
   const [videoStreamframeRate, setVideoStreamFrameRate] = useState(30)
-  const [isProcessActive, setIsProcessActive] = useState(false)
+  // const [isProcessActive , setIsProcessActive] = useState({ value: false })
+  const isProcessActive = useRef<boolean>(false)
+  const [result, setResult] = useState<any[]>([])
 
   const { shouldProcessCurrentFrame } = calculateSampleRate({
-    samplingFrameRate: 1,
+    // each blink takes ~100ms and 10 fps is a appropriate number
+    samplingFrameRate: 12,
     videoStreamframeRate: videoStreamframeRate,
   })
 
-  const analyzeVideo = () => {
+  function analyzeVideo() {
+    // console.log('analyzeVideo isProcessActive', isProcessActive)
     // check to continue or not
-    if (isProcessActive) {
-      if (!videoElement) return
-      predictWebcam()
-      if ('requestVideoFrameCallback' in HTMLVideoElement.prototype) {
-        videoElement.requestVideoFrameCallback(analyzeVideo)
-      } else {
-        // no polyfill yet
-        // requestAnimationFrame(analyzeVideo)
-      }
+    if (!isProcessActive.current) return
+    if (!videoElement) return
+    predictWebcam()
+
+    if ('requestVideoFrameCallback' in HTMLVideoElement.prototype) {
+      videoElement.requestVideoFrameCallback(analyzeVideo)
+    } else {
+      // no polyfill yet
+      // requestAnimationFrame(analyzeVideo)
     }
   }
 
@@ -125,7 +129,6 @@ const useVideoLandmark = ({ canvasElement, videoElement, onResult }: VideoLandma
       sum += brightness
     }
     const lightAverage = sum / (videoHeight * videoWidth)
-    console.log('image sum', lightAverage)
     return lightAverage
   }
 
@@ -133,24 +136,40 @@ const useVideoLandmark = ({ canvasElement, videoElement, onResult }: VideoLandma
   async function predictWebcam() {
     let startTimeMs = performance.now()
     if (faceLandmarker && videoElement && lastVideoTime !== videoElement.currentTime && shouldProcessCurrentFrame()) {
+      // TODO: what the hell is this ?
       lastVideoTime = videoElement.currentTime
       let results = faceLandmarker?.detectForVideo(videoElement, startTimeMs)
 
       if (results) {
         if (results.faceLandmarks.length === 0) {
           console.log('no face detected')
+          return
         }
 
         if (results.faceLandmarks.length > 1) {
-          console.log('there are more that 1 person in video')
+          // console.log('there are more that 1 person in video')
         }
 
         if (results.faceLandmarks.length === 1) {
-          console.log('there is only 1 person in video')
+          // console.log('there is only 1 person in video')
         }
         const lightAverage = checkBrightness()
-        const usefullData = extractUsefulData(results)
-        console.log('results', { usefullData, lightAverage })
+        const usefulData = extractUsefulData(results)
+        //@ts
+        const data = {
+          ...usefulData,
+          modelOut: usefulData?.formattedResults,
+          lightAverage,
+          numberOfFaces: results?.faceLandmarks?.length,
+        }
+        console.log('results', data)
+        setResult((prev) => {
+          if (prev?.length > 50) {
+            prev.shift()
+            return [...prev, data]
+          }
+          return [...prev, data]
+        })
         onResult && onResult(results)
       }
     } else {
@@ -193,21 +212,43 @@ const useVideoLandmark = ({ canvasElement, videoElement, onResult }: VideoLandma
     usefulResults?.forEach((item) => {
       formattedResults[item.categoryName] = +item.score.toFixed(3)
     })
-
     const coordinates = extractPolygonsCoordinates(results.faceLandmarks[0])
-    // console.log('coordinates', coordinates)
-    // setExtractedData((prev) => [...prev, { coordinates, formattedResults }])
-    return { coordinates, formattedResults }
+
+    const areaRatiosPercentage = calculateAreaRatios(coordinates)
+
+    return { coordinates, formattedResults, areaRatiosPercentage }
+  }
+
+  const calculateAreaRatios = (coordinates: {
+    faceCoordinates: NormalizedLandmark[]
+    rightEyeCoordinates: NormalizedLandmark[]
+    leftEyeCoordinates: NormalizedLandmark[]
+    lipsCoordinates: NormalizedLandmark[]
+  }) => {
+    const faceArea = calculatePolygonArea(coordinates.faceCoordinates)
+    const leftEyeArea = calculatePolygonArea(coordinates.leftEyeCoordinates)
+    const rightEyeArea = calculatePolygonArea(coordinates.rightEyeCoordinates)
+    const lipsArea = calculatePolygonArea(coordinates.lipsCoordinates)
+    return {
+      leftEyeToFace: leftEyeArea / faceArea,
+      rightEyeToFace: rightEyeArea / faceArea,
+      lipsToFace: lipsArea / faceArea,
+      faceArea,
+      leftEyeArea,
+      rightEyeArea,
+      lipsArea,
+    }
   }
 
   const startProcess = () => {
-    setIsProcessActive(true)
+    isProcessActive.current = true
+    analyzeVideo()
   }
   const stopProcess = () => {
-    setIsProcessActive(false)
+    isProcessActive.current = false
   }
 
-  return { predictWebcam, isVideoAnalyzerReady, setVideoStreamFrameRate, startProcess, stopProcess }
+  return { isVideoAnalyzerReady, setVideoStreamFrameRate, startProcess, stopProcess, result }
 }
 
 export default useVideoLandmark
