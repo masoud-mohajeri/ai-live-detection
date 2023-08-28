@@ -8,6 +8,7 @@ import {
 import { useEffect, useRef, useState } from 'react'
 import { FacePartsPolygon, videoHeight, videoWidth } from '../components/face-landmark/constants'
 import { calculateSampleRate } from './calculateSampleRate'
+import { calculatePolygonArea } from '../components/face-landmark/utils'
 
 /**
  * TODO
@@ -34,7 +35,7 @@ const reportUsefulKeys = [
 
 type VideoLandmarkParamerters = {
   onResult?: (arg: FaceLandmarkerResult) => void
-  videoElement: HTMLVideoElement | null
+  videoElement: HTMLVideoElement | null // pass the whole ref not the current object
   canvasElement: HTMLCanvasElement | null
 }
 // pass element or ref ??????
@@ -89,7 +90,7 @@ const useVideoLandmark = ({ canvasElement, videoElement, onResult }: VideoLandma
         outputFaceBlendshapes: true,
         runningMode: 'VIDEO',
         // parameters
-        numFaces: 3, // there are more that 1 person in video
+        numFaces: 2, // there are more that 1 person in video
         minFacePresenceConfidence: 0.5,
         minFaceDetectionConfidence: 0.5,
         minTrackingConfidence: 0.5,
@@ -179,6 +180,7 @@ const useVideoLandmark = ({ canvasElement, videoElement, onResult }: VideoLandma
     const leftEyeCoordinates = pickPolygonPoints(results, FacePartsPolygon.leftEye)
     const rightEyeCoordinates = pickPolygonPoints(results, FacePartsPolygon.rightEye)
     const lipsCoordinates = pickPolygonPoints(results, FacePartsPolygon.lips)
+    console.log('face area', calculatePolygonArea(leftEyeCoordinates) / calculatePolygonArea(faceCoordinates))
     return { faceCoordinates, rightEyeCoordinates, leftEyeCoordinates, lipsCoordinates }
     // console.log('FaceLandmarker.FACE_LANDMARKS_FACE_OVAL', FaceLandmarker.FACE_LANDMARKS_FACE_OVAL)
   }
