@@ -252,3 +252,12 @@ const useVideoLandmark = ({ canvasElement, videoElement, onResult }: VideoLandma
 }
 
 export default useVideoLandmark
+
+/**
+ * existance of both eyes
+ * change in eye
+ * change in mouth
+ * check blink
+ * check number of mouth
+ * depth ????
+ */

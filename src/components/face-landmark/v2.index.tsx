@@ -159,7 +159,8 @@ const FaceLandmark: FC = () => {
           <Legend />
 
           <Line isAnimationActive={false} type="monotone" dataKey="leftEyeToFace" stroke="#8884d8" />
-          <Line isAnimationActive={false} type="monotone" dataKey="rightEyeToFace" stroke="#82ca9d" />
+          <Line isAnimationActive={false} type="monotone" dataKey="leftEyeToFace" stroke="#8884d8" />
+          <Line isAnimationActive={false} type="monotone" dataKey="lipsArea" stroke="#9A3B3B" />
           {/* <Line isAnimationActive={false} type="monotone" dataKey="lipsToFace" stroke="#FAF1E4" /> */}
         </LineChart>
       </ResponsiveContainer>
