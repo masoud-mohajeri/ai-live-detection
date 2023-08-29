@@ -1,15 +1,15 @@
 type SampleRateOptions = {
-  videoStreamframeRate: number
+  videoStreamFrameRate: number
   samplingFrameRate: number
 }
 
 //return type ???
 
-export const calculateSampleRate = ({ videoStreamframeRate, samplingFrameRate }: SampleRateOptions) => {
+export const calculateSampleRate = ({ videoStreamFrameRate, samplingFrameRate }: SampleRateOptions) => {
   let unprocessedFramesCounter = 0
 
   const shouldProcessCurrentFrame = () => {
-    if (unprocessedFramesCounter >= videoStreamframeRate / samplingFrameRate) {
+    if (unprocessedFramesCounter >= videoStreamFrameRate / samplingFrameRate) {
       // console.log('frame processed')
       unprocessedFramesCounter = 0
       return true

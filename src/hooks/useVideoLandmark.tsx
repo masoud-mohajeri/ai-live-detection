@@ -1,11 +1,5 @@
-import {
-  DrawingUtils,
-  FaceLandmarker,
-  FaceLandmarkerResult,
-  FilesetResolver,
-  NormalizedLandmark,
-} from '@mediapipe/tasks-vision'
-import { useEffect, useRef, useState } from 'react'
+import { FaceLandmarker, FaceLandmarkerResult, FilesetResolver, NormalizedLandmark } from '@mediapipe/tasks-vision'
+import { MutableRefObject, useEffect, useRef, useState } from 'react'
 import { FacePartsPolygon, videoHeight, videoWidth } from '../components/face-landmark/constants'
 import { calculateSampleRate } from './calculateSampleRate'
 import { calculatePolygonArea } from '../components/face-landmark/utils'
@@ -16,33 +10,32 @@ import { calculatePolygonArea } from '../components/face-landmark/utils'
  * add audio
  */
 
-// requestAnimationFrame in chrome 60fps and safari ~30fps
+type FaceLandmarkPartsCoordinates = {
+  faceCoordinates: NormalizedLandmark[]
+  rightEyeCoordinates: NormalizedLandmark[]
+  leftEyeCoordinates: NormalizedLandmark[]
+  lipsCoordinates: NormalizedLandmark[]
+}
 
-let lastVideoTime = -1
-const reportUsefulKeys = [
-  'eyeBlinkLeft',
-  'eyeBlinkRight',
-  // baaaaank
-  'jawOpen',
-  // bluuuuuu
-  'mouthPucker',
-  'mouthFunnel',
-  // mmman
-  'mouthShrugLower',
-  'mouthRollUpper',
-  'mouthRollLower',
-]
+type FaceRatios = {
+  leftEyeToFace: number
+  rightEyeToFace: number
+  lipsToFace: number
+}
 
-type VideoLandmarkParamerters = {
+// let lastVideoTime = -1
+const reportUsefulKeys = ['eyeBlinkLeft', 'eyeBlinkRight', 'mouthFunnel']
+
+type VideoLandmarkParameters = {
   onResult?: (arg: FaceLandmarkerResult) => void
-  videoElement: HTMLVideoElement | null // pass the whole ref not the current object
-  canvasElement: HTMLCanvasElement | null
+  videoElement: MutableRefObject<HTMLVideoElement | null>
+  canvasElement: MutableRefObject<HTMLCanvasElement | null>
 }
 // pass element or ref ??????
-const useVideoLandmark = ({ canvasElement, videoElement, onResult }: VideoLandmarkParamerters) => {
+const useVideoLandmark = ({ canvasElement, videoElement, onResult }: VideoLandmarkParameters) => {
   const [faceLandmarker, setFaceLandmarker] = useState<FaceLandmarker>()
   const [isVideoAnalyzerReady, setIsVideoAnalyzerReady] = useState<boolean>(false)
-  const [videoStreamframeRate, setVideoStreamFrameRate] = useState(30)
+  const [videoStreamFrameRate, setVideoStreamFrameRate] = useState(30)
   // const [isProcessActive , setIsProcessActive] = useState({ value: false })
   const isProcessActive = useRef<boolean>(false)
   const [result, setResult] = useState<any[]>([])
@@ -50,18 +43,18 @@ const useVideoLandmark = ({ canvasElement, videoElement, onResult }: VideoLandma
   const { shouldProcessCurrentFrame } = calculateSampleRate({
     // each blink takes ~100ms and 10 fps is a appropriate number
     samplingFrameRate: 12,
-    videoStreamframeRate: videoStreamframeRate,
+    videoStreamFrameRate,
   })
 
   function analyzeVideo() {
     // console.log('analyzeVideo isProcessActive', isProcessActive)
     // check to continue or not
     if (!isProcessActive.current) return
-    if (!videoElement) return
-    predictWebcam()
+    if (!videoElement.current) return
+    analyzeVideoFrame()
 
     if ('requestVideoFrameCallback' in HTMLVideoElement.prototype) {
-      videoElement.requestVideoFrameCallback(analyzeVideo)
+      videoElement.current.requestVideoFrameCallback(analyzeVideo)
     } else {
       // no polyfill yet
       // requestAnimationFrame(analyzeVideo)
@@ -111,11 +104,12 @@ const useVideoLandmark = ({ canvasElement, videoElement, onResult }: VideoLandma
   }, [])
 
   const checkBrightness = () => {
-    if (!canvasElement || !videoElement) return
-    const context = canvasElement.getContext('2d')
+    // Calculate brightness using average pixel value
+    if (!canvasElement.current || !videoElement.current) return
+    const context = canvasElement.current.getContext('2d')
     if (!videoElement || !context) return
 
-    context.drawImage(videoElement, 0, 0, videoWidth, videoHeight)
+    context.drawImage(videoElement.current, 0, 0, videoWidth, videoHeight)
     const imageData = context.getImageData(0, 0, videoWidth, videoHeight)
     const data = imageData.data
 
@@ -124,7 +118,6 @@ const useVideoLandmark = ({ canvasElement, videoElement, onResult }: VideoLandma
       const r = data[i]
       const g = data[i + 1]
       const b = data[i + 2]
-      // Calculate brightness using average pixel value (simple approach)
       const brightness = (r + g + b) / 3
       sum += brightness
     }
@@ -133,12 +126,17 @@ const useVideoLandmark = ({ canvasElement, videoElement, onResult }: VideoLandma
   }
 
   // because of forward ref
-  async function predictWebcam() {
-    let startTimeMs = performance.now()
-    if (faceLandmarker && videoElement && lastVideoTime !== videoElement.currentTime && shouldProcessCurrentFrame()) {
+  async function analyzeVideoFrame() {
+    let currentFrameTime = Date.now()
+    if (
+      faceLandmarker &&
+      videoElement.current &&
+      // lastVideoTime !== videoElement.current.currentTime &&
+      shouldProcessCurrentFrame()
+    ) {
       // TODO: what the hell is this ?
-      lastVideoTime = videoElement.currentTime
-      let results = faceLandmarker?.detectForVideo(videoElement, startTimeMs)
+      // lastVideoTime = videoElement.current.currentTime
+      let results = faceLandmarker?.detectForVideo(videoElement.current, currentFrameTime)
 
       if (results) {
         if (results.faceLandmarks.length === 0) {
@@ -155,13 +153,15 @@ const useVideoLandmark = ({ canvasElement, videoElement, onResult }: VideoLandma
         }
         const lightAverage = checkBrightness()
         const usefulData = extractUsefulData(results)
-        //@ts
+        // TODO: better TS
         const data = {
           ...usefulData,
           modelOut: usefulData?.formattedResults,
           lightAverage,
           numberOfFaces: results?.faceLandmarks?.length,
         }
+        // onResult && onResult(results)
+        // FOR DEMO ---------------------
         console.log('results', data)
         setResult((prev) => {
           if (prev?.length > 50) {
@@ -171,6 +171,7 @@ const useVideoLandmark = ({ canvasElement, videoElement, onResult }: VideoLandma
           return [...prev, data]
         })
         onResult && onResult(results)
+        // ------------------------------
       }
     } else {
       // console.log('predictWebcam else block', {
@@ -180,51 +181,48 @@ const useVideoLandmark = ({ canvasElement, videoElement, onResult }: VideoLandma
       //   condition: video && lastVideoTime !== video.currentTime && shouldProcessCurrentFrame(),
       // })
     }
-
-    // if (isCameraReady === true) {
-    //   window.requestAnimationFrame(predictWebcam)
-    // }
   }
 
-  const pickPolygonPoints = (polygon: NormalizedLandmark[], demandedIndexes: number[]) => {
+  const pickPolygonPoints = (polygon: NormalizedLandmark[], demandedIndexes: number[]): NormalizedLandmark[] => {
     const results = []
+    // it is possible to achieve same result with filter method too but for loop has the best performance
     for (let key of demandedIndexes) {
       results.push(polygon[key])
     }
     return results
   }
-  const extractPolygonsCoordinates = (results: NormalizedLandmark[]) => {
-    // console.log('results', results)
+
+  const extractPolygonsCoordinates = (results: NormalizedLandmark[]): FaceLandmarkPartsCoordinates => {
     const faceCoordinates = pickPolygonPoints(results, FacePartsPolygon.faceOval)
     const leftEyeCoordinates = pickPolygonPoints(results, FacePartsPolygon.leftEye)
     const rightEyeCoordinates = pickPolygonPoints(results, FacePartsPolygon.rightEye)
     const lipsCoordinates = pickPolygonPoints(results, FacePartsPolygon.lips)
-    console.log('face area', calculatePolygonArea(leftEyeCoordinates) / calculatePolygonArea(faceCoordinates))
+
     return { faceCoordinates, rightEyeCoordinates, leftEyeCoordinates, lipsCoordinates }
-    // console.log('FaceLandmarker.FACE_LANDMARKS_FACE_OVAL', FaceLandmarker.FACE_LANDMARKS_FACE_OVAL)
   }
+
   const extractUsefulData = (results: FaceLandmarkerResult) => {
-    const usefulResults = results?.faceBlendshapes?.[0]?.categories?.filter((item) =>
+    const usefulBlendShapes = results?.faceBlendshapes?.[0]?.categories?.filter((item) =>
       reportUsefulKeys.some((rep) => rep === item?.categoryName),
     )
     const formattedResults: Record<string, number> = {}
 
-    usefulResults?.forEach((item) => {
+    for (let item of usefulBlendShapes) {
       formattedResults[item.categoryName] = +item.score.toFixed(3)
-    })
-    const coordinates = extractPolygonsCoordinates(results.faceLandmarks[0])
+    }
 
-    const areaRatiosPercentage = calculateAreaRatios(coordinates)
-
-    return { coordinates, formattedResults, areaRatiosPercentage }
+    const facePartsAreaRatiosPercentage = facePartsAreaRatio(results.faceLandmarks[0])
+    return { formattedResults, areaRatiosPercentage: facePartsAreaRatiosPercentage }
   }
 
-  const calculateAreaRatios = (coordinates: {
-    faceCoordinates: NormalizedLandmark[]
-    rightEyeCoordinates: NormalizedLandmark[]
-    leftEyeCoordinates: NormalizedLandmark[]
-    lipsCoordinates: NormalizedLandmark[]
-  }) => {
+  const facePartsAreaRatio = (faceLandmarks: NormalizedLandmark[]) => {
+    const coordinates = extractPolygonsCoordinates(faceLandmarks)
+
+    const areaRatiosPercentage = calculateAreaRatios(coordinates)
+    return areaRatiosPercentage
+  }
+
+  const calculateAreaRatios = (coordinates: FaceLandmarkPartsCoordinates): FaceRatios => {
     const faceArea = calculatePolygonArea(coordinates.faceCoordinates)
     const leftEyeArea = calculatePolygonArea(coordinates.leftEyeCoordinates)
     const rightEyeArea = calculatePolygonArea(coordinates.rightEyeCoordinates)
@@ -233,10 +231,6 @@ const useVideoLandmark = ({ canvasElement, videoElement, onResult }: VideoLandma
       leftEyeToFace: leftEyeArea / faceArea,
       rightEyeToFace: rightEyeArea / faceArea,
       lipsToFace: lipsArea / faceArea,
-      faceArea,
-      leftEyeArea,
-      rightEyeArea,
-      lipsArea,
     }
   }
 

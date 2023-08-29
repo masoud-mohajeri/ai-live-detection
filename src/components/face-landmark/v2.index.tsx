@@ -13,8 +13,8 @@ const FaceLandmark: FC = () => {
   const [isStreamReady, setIsStreamReady] = useState(false)
   const { isVideoAnalyzerReady, setVideoStreamFrameRate, startProcess, stopProcess, result } = useVideoLandmark({
     onResult: drawResults,
-    videoElement: video.current,
-    canvasElement: canvasRef.current,
+    videoElement: video,
+    canvasElement: canvasRef,
   })
 
   useEffect(() => {
