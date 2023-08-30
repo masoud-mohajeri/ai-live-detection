@@ -72,14 +72,14 @@ const useVideoLandmark = ({ canvasElement, videoElement, drawLandmarks }: VideoL
     // check to continue or not
     if (!isProcessActive.current) return
     if (!videoElement.current) return
-    analyzeVideoFrame()
+    analyzeFrame()
 
-    if ('requestVideoFrameCallback' in HTMLVideoElement.prototype) {
-      videoElement.current.requestVideoFrameCallback(analyzeVideo)
-    } else {
-      // no polyfill yet
-      // requestAnimationFrame(analyzeVideo)
-    }
+    // if ('requestVideoFrameCallback' in HTMLVideoElement.prototype) {
+    videoElement.current.requestVideoFrameCallback(analyzeVideo)
+    // } else {
+    //   // no polyfill yet
+    //   // requestAnimationFrame(analyzeVideo)
+    // }
   }
 
   useEffect(() => {
@@ -124,6 +124,57 @@ const useVideoLandmark = ({ canvasElement, videoElement, drawLandmarks }: VideoL
     faceLandmarkFactory()
   }, [])
 
+  const analyzeFrame = async () => {
+    let currentFrameTime = Date.now()
+    if (faceLandmarker && videoElement.current && shouldProcessCurrentFrame()) {
+      let results = faceLandmarker?.detectForVideo(videoElement.current, currentFrameTime)
+      if (results) {
+        if (results.faceLandmarks.length === 0) {
+          const frameAnalyzeResult: FrameAnalyzeResult = {
+            analyzeTime: currentFrameTime,
+            result: {
+              frameAnalyzeHealth: false,
+              reason: 'noFace',
+            },
+          }
+          setResult((prev) => [...prev, frameAnalyzeResult])
+        }
+
+        if (results.faceLandmarks.length > 1) {
+          const frameAnalyzeResult: FrameAnalyzeResult = {
+            analyzeTime: currentFrameTime,
+            result: {
+              frameAnalyzeHealth: false,
+              reason: 'moreThenOneFace',
+            },
+          }
+          setResult((prev) => [...prev, frameAnalyzeResult])
+        }
+
+        if (results.faceLandmarks.length === 1) {
+          drawLandmarks && drawLandmarks(results)
+          const lightAverage = checkBrightness() || 0
+          const usefulData = extractUsefulData(results)
+
+          const frameAnalyzeResult: FrameAnalyzeResult = {
+            analyzeTime: currentFrameTime,
+            result: {
+              frameAnalyzeHealth: true,
+              data: {
+                blendshapes: usefulData.blendShapes,
+                lightAverage,
+                facePartsRatios: usefulData.facePartsAreaRatiosPercentage,
+              },
+            },
+          }
+          setResult((prev) => [...prev, frameAnalyzeResult])
+        }
+      }
+    } else {
+      // log reason or report it to somewhere
+    }
+  }
+
   const checkBrightness = () => {
     // Calculate brightness using average pixel value
     if (!canvasElement.current || !videoElement.current) return
@@ -146,61 +197,6 @@ const useVideoLandmark = ({ canvasElement, videoElement, drawLandmarks }: VideoL
     return lightAverage
   }
 
-  const analyzeVideoFrame = async () => {
-    let currentFrameTime = Date.now()
-    if (faceLandmarker && videoElement.current && shouldProcessCurrentFrame()) {
-      let results = faceLandmarker?.detectForVideo(videoElement.current, currentFrameTime)
-      if (results) {
-        if (results.faceLandmarks.length === 0) {
-          console.log('no face detected')
-          const frameAnalyzeResult: FrameAnalyzeResult = {
-            analyzeTime: currentFrameTime,
-            result: {
-              frameAnalyzeHealth: false,
-              reason: 'noFace',
-            },
-          }
-          setResult((prev) => [...prev, frameAnalyzeResult])
-          return
-        }
-
-        if (results.faceLandmarks.length > 1) {
-          // console.log('there are more that 1 person in video')
-          const frameAnalyzeResult: FrameAnalyzeResult = {
-            analyzeTime: currentFrameTime,
-            result: {
-              frameAnalyzeHealth: false,
-              reason: 'moreThenOneFace',
-            },
-          }
-          setResult((prev) => [...prev, frameAnalyzeResult])
-        }
-
-        if (results.faceLandmarks.length === 1) {
-          drawLandmarks && drawLandmarks(results)
-          // console.log('there is only 1 person in video')
-          const lightAverage = checkBrightness() || 0
-          const usefulData = extractUsefulData(results)
-
-          const frameAnalyzeResult: FrameAnalyzeResult = {
-            analyzeTime: currentFrameTime,
-            result: {
-              frameAnalyzeHealth: true,
-              data: {
-                blendshapes: usefulData?.formattedResults,
-                lightAverage,
-                facePartsRatios: usefulData.areaRatiosPercentage,
-              },
-            },
-          }
-          setResult((prev) => [...prev, frameAnalyzeResult])
-        }
-      }
-    } else {
-      // add no result to Result list + reason
-    }
-  }
-
   const pickPolygonPoints = (polygon: NormalizedLandmark[], demandedIndexes: number[]): NormalizedLandmark[] => {
     const results = []
     // it is possible to achieve same result with filter method too but for loop has the best performance
@@ -220,23 +216,24 @@ const useVideoLandmark = ({ canvasElement, videoElement, drawLandmarks }: VideoL
   }
 
   const extractUsefulData = (results: FaceLandmarkerResult) => {
-    const usefulBlendShapes = results?.faceBlendshapes?.[0]?.categories?.filter((item) =>
+    const usefulBlendShapesList = results?.faceBlendshapes?.[0]?.categories?.filter((item) =>
       reportUsefulKeys.some((rep) => rep === item?.categoryName),
     )
-    const formattedResults: Record<string, number> = {}
+    const usefulBlendShapes: Record<string, number> = {}
 
-    for (let item of usefulBlendShapes) {
-      formattedResults[item.categoryName] = +item.score.toFixed(3)
+    for (let item of usefulBlendShapesList) {
+      usefulBlendShapes[item.categoryName] = +item.score.toFixed(3)
     }
 
     const facePartsAreaRatiosPercentage = facePartsAreaRatio(results.faceLandmarks[0])
-    return { formattedResults, areaRatiosPercentage: facePartsAreaRatiosPercentage }
+
+    return { blendShapes: usefulBlendShapes, facePartsAreaRatiosPercentage }
   }
 
   const facePartsAreaRatio = (faceLandmarks: NormalizedLandmark[]) => {
     const coordinates = extractPolygonsCoordinates(faceLandmarks)
-
     const areaRatiosPercentage = calculateAreaRatios(coordinates)
+
     return areaRatiosPercentage
   }
 
