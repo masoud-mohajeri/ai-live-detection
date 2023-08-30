@@ -23,22 +23,43 @@ type FaceRatios = {
   lipsToFace: number
 }
 
+type FrameAnalyzeResult = {
+  analyzeTime: number
+  result:
+    | {
+        frameAnalyzeHealth: true
+        data: {
+          blendshapes: Record<string, number>
+          facePartsRatios: FaceRatios
+          lightAverage: number
+        }
+      }
+    | {
+        frameAnalyzeHealth: false
+        // moreThenOneFace: boolean
+        // noFaceDetected: boolean
+        reason: 'moreThenOneFace' | 'noFace'
+        // change to sth better
+        // errorInCode: any
+      }
+}
+
 // let lastVideoTime = -1
 const reportUsefulKeys = ['eyeBlinkLeft', 'eyeBlinkRight', 'mouthFunnel']
 
 type VideoLandmarkParameters = {
-  onResult?: (arg: FaceLandmarkerResult) => void
+  drawLandmarks?: (arg: FaceLandmarkerResult) => void
   videoElement: MutableRefObject<HTMLVideoElement | null>
   canvasElement: MutableRefObject<HTMLCanvasElement | null>
 }
 // pass element or ref ??????
-const useVideoLandmark = ({ canvasElement, videoElement, onResult }: VideoLandmarkParameters) => {
+const useVideoLandmark = ({ canvasElement, videoElement, drawLandmarks }: VideoLandmarkParameters) => {
   const [faceLandmarker, setFaceLandmarker] = useState<FaceLandmarker>()
   const [isVideoAnalyzerReady, setIsVideoAnalyzerReady] = useState<boolean>(false)
   const [videoStreamFrameRate, setVideoStreamFrameRate] = useState(30)
   // const [isProcessActive , setIsProcessActive] = useState({ value: false })
   const isProcessActive = useRef<boolean>(false)
-  const [result, setResult] = useState<any[]>([])
+  const [result, setResult] = useState<FrameAnalyzeResult[]>([])
 
   const { shouldProcessCurrentFrame } = calculateSampleRate({
     // each blink takes ~100ms and 10 fps is a appropriate number
@@ -125,61 +146,58 @@ const useVideoLandmark = ({ canvasElement, videoElement, onResult }: VideoLandma
     return lightAverage
   }
 
-  // because of forward ref
-  async function analyzeVideoFrame() {
+  const analyzeVideoFrame = async () => {
     let currentFrameTime = Date.now()
-    if (
-      faceLandmarker &&
-      videoElement.current &&
-      // lastVideoTime !== videoElement.current.currentTime &&
-      shouldProcessCurrentFrame()
-    ) {
-      // TODO: what the hell is this ?
-      // lastVideoTime = videoElement.current.currentTime
+    if (faceLandmarker && videoElement.current && shouldProcessCurrentFrame()) {
       let results = faceLandmarker?.detectForVideo(videoElement.current, currentFrameTime)
-
       if (results) {
         if (results.faceLandmarks.length === 0) {
           console.log('no face detected')
+          const frameAnalyzeResult: FrameAnalyzeResult = {
+            analyzeTime: currentFrameTime,
+            result: {
+              frameAnalyzeHealth: false,
+              reason: 'noFace',
+            },
+          }
+          setResult((prev) => [...prev, frameAnalyzeResult])
           return
         }
 
         if (results.faceLandmarks.length > 1) {
           // console.log('there are more that 1 person in video')
+          const frameAnalyzeResult: FrameAnalyzeResult = {
+            analyzeTime: currentFrameTime,
+            result: {
+              frameAnalyzeHealth: false,
+              reason: 'moreThenOneFace',
+            },
+          }
+          setResult((prev) => [...prev, frameAnalyzeResult])
         }
 
         if (results.faceLandmarks.length === 1) {
+          drawLandmarks && drawLandmarks(results)
           // console.log('there is only 1 person in video')
-        }
-        const lightAverage = checkBrightness()
-        const usefulData = extractUsefulData(results)
-        // TODO: better TS
-        const data = {
-          ...usefulData,
-          modelOut: usefulData?.formattedResults,
-          lightAverage,
-          numberOfFaces: results?.faceLandmarks?.length,
-        }
-        // onResult && onResult(results)
-        // FOR DEMO ---------------------
-        console.log('results', data)
-        setResult((prev) => {
-          if (prev?.length > 50) {
-            prev.shift()
-            return [...prev, data]
+          const lightAverage = checkBrightness() || 0
+          const usefulData = extractUsefulData(results)
+
+          const frameAnalyzeResult: FrameAnalyzeResult = {
+            analyzeTime: currentFrameTime,
+            result: {
+              frameAnalyzeHealth: true,
+              data: {
+                blendshapes: usefulData?.formattedResults,
+                lightAverage,
+                facePartsRatios: usefulData.areaRatiosPercentage,
+              },
+            },
           }
-          return [...prev, data]
-        })
-        onResult && onResult(results)
-        // ------------------------------
+          setResult((prev) => [...prev, frameAnalyzeResult])
+        }
       }
     } else {
-      // console.log('predictWebcam else block', {
-      //   video: !!video,
-      //   currentTime: video?.currentTime,
-      //   shouldProcessCurrentFrame: shouldProcessCurrentFrame(),
-      //   condition: video && lastVideoTime !== video.currentTime && shouldProcessCurrentFrame(),
-      // })
+      // add no result to Result list + reason
     }
   }
 
