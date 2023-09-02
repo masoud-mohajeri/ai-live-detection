@@ -11,10 +11,19 @@ const FaceLandmark: FC = () => {
   const canvasRef = useRef<HTMLCanvasElement | null>(null)
   const [isVideoElementReady, setIsVideoElementReady] = useState(false)
   const [isStreamReady, setIsStreamReady] = useState(false)
-  const { isVideoAnalyzerReady, setVideoStreamFrameRate, startProcess, stopProcess, result } = useVideoLandmark({
+  const [videoStreamFrameRate, setVideoStreamFrameRate] = useState(30)
+
+  const { isVideoAnalyzerReady, startProcess, stopProcess, result } = useVideoLandmark({
     drawLandmarks: drawResults,
     videoElement: video,
     canvasElement: canvasRef,
+    videoStreamFrameRate,
+    options: {
+      numFaces: 2,
+      minFacePresenceConfidence: 0.5,
+      minFaceDetectionConfidence: 0.5,
+      minTrackingConfidence: 0.5,
+    },
   })
 
   useEffect(() => {
