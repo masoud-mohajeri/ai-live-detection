@@ -34,7 +34,7 @@ type FrameAnalyzeResult = {
         frameAnalyzeHealth: false
         // moreThenOneFace: boolean
         // noFaceDetected: boolean
-        reason: 'moreThenOneFaceDetected' | 'noFaceDetected'
+        reason: 'moreThenOneFaceDetected' | 'noFaceDetected' | 'initializationError:'
         // change to sth better
         // errorInCode: any
       }
@@ -73,7 +73,7 @@ const useVideoLandmark = ({
     if (!isProcessActive.current) return
     if (!videoElement.current) return
     analyzeFrame()
-    // requestVideoFrameCallback is supported since march 14th 2022 (safari 15.4) in safari mobile (current version 16.6)
+    // requestVideoFrameCallback is supported by safari mobile since march 14th 2022 (safari 15.4) and current version is 16.6
     // https://caniuse.com/?search=requestVideoFrameCallback
     videoElement.current.requestVideoFrameCallback(analyzeVideo)
   }
@@ -83,16 +83,16 @@ const useVideoLandmark = ({
     try {
       // TODO: Add loading
       const vision = await FilesetResolver.forVisionTasks(
-        'https://cdn.jsdelivr.net/npm/@mediapipe/tasks-vision@0.10.3/wasm',
+        // 'https://cdn.jsdelivr.net/npm/@mediapipe/tasks-vision@0.10.3/wasm',
+        'http://localhost:3000/mediapipe',
       )
       const faceLandmarkerInstance = await FaceLandmarker.createFromOptions(vision, {
         baseOptions: {
-          // TODO: is it really necessary ?
-          modelAssetPath: `https://storage.googleapis.com/mediapipe-models/face_landmarker/face_landmarker/float16/1/face_landmarker.task`,
-          // modelAssetPath: `/src/assets/blendshapes.task`,
-          // it is delighted for cpu but the error in console is just an info and
-          // not a bad practice <- python community
-          // things get really slow when it is on cpu
+          //TODO: add version to this files do I can cache them for long term
+          // `https://storage.googleapis.com/mediapipe-models/face_landmarker/face_landmarker/float16/1/face_landmarker.task`,
+          modelAssetPath: 'http://localhost:3000/mediapipe/face_landmarker.task',
+          // INFO: Created TensorFlow Lite XNNPACK delegate for CPU -> its just info
+          // other things (e.g: dom stuff) get a little slow when it is on cpu
           delegate: 'GPU',
         },
         outputFaceBlendshapes: true,
