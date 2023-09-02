@@ -34,7 +34,7 @@ type FrameAnalyzeResult = {
         frameAnalyzeHealth: false
         // moreThenOneFace: boolean
         // noFaceDetected: boolean
-        reason: 'moreThenOneFace' | 'noFace'
+        reason: 'moreThenOneFaceDetected' | 'noFaceDetected'
         // change to sth better
         // errorInCode: any
       }
@@ -47,7 +47,7 @@ const reportUsefulKeys = ['eyeBlinkLeft', 'eyeBlinkRight', 'mouthFunnel']
 type VideoLandmarkParameters = {
   drawLandmarks?: (arg: FaceLandmarkerResult) => void
   videoElement: MutableRefObject<HTMLVideoElement | null>
-  canvasElement: MutableRefObject<HTMLCanvasElement | null>
+  canvasElement?: MutableRefObject<HTMLCanvasElement | null>
   options: LandmarkerOptions
   videoStreamFrameRate: number
 }
@@ -114,35 +114,41 @@ const useVideoLandmark = ({
     let currentFrameTime = Date.now()
     if (faceLandmarker && videoElement.current && shouldProcessCurrentFrame()) {
       let results = faceLandmarker?.detectForVideo(videoElement.current, currentFrameTime)
-      if (results) {
+      if (results && Array.isArray(results.faceLandmarks)) {
+        let frameAnalyzeResult: FrameAnalyzeResult
+        let lightAverage: number = 0
         if (results.faceLandmarks.length === 0) {
-          const frameAnalyzeResult: FrameAnalyzeResult = {
+          frameAnalyzeResult = {
             analyzeTime: currentFrameTime,
             result: {
               frameAnalyzeHealth: false,
-              reason: 'noFace',
+              reason: 'noFaceDetected',
             },
           }
-          setResult((prev) => [...prev, frameAnalyzeResult])
         }
 
         if (results.faceLandmarks.length > 1) {
-          const frameAnalyzeResult: FrameAnalyzeResult = {
+          frameAnalyzeResult = {
             analyzeTime: currentFrameTime,
             result: {
               frameAnalyzeHealth: false,
-              reason: 'moreThenOneFace',
+              reason: 'moreThenOneFaceDetected',
             },
           }
-          setResult((prev) => [...prev, frameAnalyzeResult])
         }
 
         if (results.faceLandmarks.length === 1) {
+          // only dev proposes
           drawLandmarks && drawLandmarks(results)
-          const lightAverage = checkBrightness() || 0
+          // checking canvasElement existence and calculating Brightness is
+          // done separately so this hook can work event without this feature
+          if (canvasElement?.current) {
+            lightAverage = calculateBrightness(canvasElement.current, videoElement.current)
+          }
+          // useful data for analyze
           const usefulData = extractUsefulData(results)
 
-          const frameAnalyzeResult: FrameAnalyzeResult = {
+          frameAnalyzeResult = {
             analyzeTime: currentFrameTime,
             result: {
               frameAnalyzeHealth: true,
@@ -153,21 +159,20 @@ const useVideoLandmark = ({
               },
             },
           }
-          setResult((prev) => [...prev, frameAnalyzeResult])
         }
+        setResult((prev) => [...prev, frameAnalyzeResult])
       }
     } else {
       // log reason or report it to somewhere
     }
   }
 
-  const checkBrightness = () => {
+  const calculateBrightness = (canvas: HTMLCanvasElement, video: HTMLVideoElement): number => {
     // Calculate brightness using average pixel value
-    if (!canvasElement.current || !videoElement.current) return
-    const context = canvasElement.current.getContext('2d')
-    if (!videoElement || !context) return
+    const context = canvas.getContext('2d')
+    if (!context) return 0
 
-    context.drawImage(videoElement.current, 0, 0, videoWidth, videoHeight)
+    context.drawImage(video, 0, 0, videoWidth, videoHeight)
     const imageData = context.getImageData(0, 0, videoWidth, videoHeight)
     const data = imageData.data
 
@@ -185,7 +190,7 @@ const useVideoLandmark = ({
 
   const pickPolygonPoints = (polygon: NormalizedLandmark[], demandedIndexes: number[]): NormalizedLandmark[] => {
     const results = []
-    // it is possible to achieve same result with filter method too but for loop has the best performance
+    // for loops are 3 times faster than any array iteration method
     for (let key of demandedIndexes) {
       results.push(polygon[key])
     }
