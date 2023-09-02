@@ -4,7 +4,7 @@ import type { FaceLandmarkerOptions, FaceLandmarkerResult, NormalizedLandmark } 
 
 import { FacePartsPolygon, videoHeight, videoWidth } from '../components/face-landmark/constants'
 import { calculateSampleRate } from './calculateSampleRate'
-import { calculatePolygonArea } from '../components/face-landmark/utils'
+import { calculatePolygonArea, calculateStandardDivision } from '../components/face-landmark/utils'
 
 type FaceLandmarkPartsCoordinates = {
   faceCoordinates: NormalizedLandmark[]
@@ -19,25 +19,25 @@ type FaceRatios = {
   lipsToFace: number
 }
 
-type FrameAnalyzeResult = {
+interface AcceptableResult {
+  acceptable: true
+  data: {
+    blendshapes: Record<string, number>
+    facePartsRatios: FaceRatios
+    lightAverage: number
+  }
+}
+interface UnacceptableResult {
+  acceptable: false
+  // moreThenOneFace: boolean
+  // noFaceDetected: boolean
+  reason: 'moreThenOneFaceDetected' | 'noFaceDetected' | 'initializationError'
+  // change to sth better
+  // errorInCode: any
+}
+interface FrameAnalyzeResult {
   analyzeTime: number
-  result:
-    | {
-        frameAnalyzeHealth: true
-        data: {
-          blendshapes: Record<string, number>
-          facePartsRatios: FaceRatios
-          lightAverage: number
-        }
-      }
-    | {
-        frameAnalyzeHealth: false
-        // moreThenOneFace: boolean
-        // noFaceDetected: boolean
-        reason: 'moreThenOneFaceDetected' | 'noFaceDetected' | 'initializationError:'
-        // change to sth better
-        // errorInCode: any
-      }
+  result: AcceptableResult | UnacceptableResult
 }
 
 type LandmarkerOptions = Omit<FaceLandmarkerOptions, 'outputFacialTransformationMatrixes' | 'outputFaceBlendshapes'>
@@ -121,7 +121,7 @@ const useVideoLandmark = ({
           frameAnalyzeResult = {
             analyzeTime: currentFrameTime,
             result: {
-              frameAnalyzeHealth: false,
+              acceptable: false,
               reason: 'noFaceDetected',
             },
           }
@@ -131,7 +131,7 @@ const useVideoLandmark = ({
           frameAnalyzeResult = {
             analyzeTime: currentFrameTime,
             result: {
-              frameAnalyzeHealth: false,
+              acceptable: false,
               reason: 'moreThenOneFaceDetected',
             },
           }
@@ -151,7 +151,7 @@ const useVideoLandmark = ({
           frameAnalyzeResult = {
             analyzeTime: currentFrameTime,
             result: {
-              frameAnalyzeHealth: true,
+              acceptable: true,
               data: {
                 blendshapes: usefulData.blendShapes,
                 lightAverage,
@@ -240,12 +240,54 @@ const useVideoLandmark = ({
     }
   }
 
+  const generateReport = (result: FrameAnalyzeResult[]) => {
+    // (mouth + eye) visibility => SD
+    const numberOfResults = result.length
+    // TODO: generic type
+    const resultsAsArray: Record<string, number[]> = {
+      leftEyeRatio: [],
+      rightEyeToFace: [],
+      lipsToFace: [],
+      eyeBlinkLeft: [],
+      eyeBlinkRight: [],
+      mouthFunnel: [],
+      analyzeTime: [],
+      lightAverage: [],
+    }
+    const errorsCounter = { moreThenOneFaceDetected: 0, noFaceDetected: 0 }
+    for (let index = 0; index < result.length; index++) {
+      const data = result[index]
+      if (data.result.acceptable) {
+        resultsAsArray.leftEyeRatio.push(data.result.data.facePartsRatios.leftEyeToFace)
+        resultsAsArray.rightEyeToFace.push(data.result.data.facePartsRatios.rightEyeToFace)
+        resultsAsArray.lipsToFace.push(data.result.data.facePartsRatios.lipsToFace)
+        resultsAsArray.eyeBlinkLeft.push(data.result.data.blendshapes.eyeBlinkLeft)
+        resultsAsArray.eyeBlinkRight.push(data.result.data.blendshapes.eyeBlinkRight)
+        resultsAsArray.mouthFunnel.push(data.result.data.blendshapes.mouthFunnel)
+        resultsAsArray.analyzeTime.push(data.analyzeTime)
+        resultsAsArray.lightAverage.push(data.result.data.lightAverage)
+      } else {
+        if (data.result.reason === 'moreThenOneFaceDetected') errorsCounter.moreThenOneFaceDetected++
+        if (data.result.reason === 'noFaceDetected') errorsCounter.noFaceDetected++
+      }
+    }
+    const reasonsSD: Record<string, number> = {}
+
+    for (let key in resultsAsArray) {
+      reasonsSD[key] = calculateStandardDivision(resultsAsArray[key])
+    }
+
+    console.log('reasonsSD', { reasonsSD })
+  }
+
   const startProcess = () => {
     isProcessActive.current = true
     analyzeVideo()
   }
   const stopProcess = () => {
     isProcessActive.current = false
+
+    generateReport(result)
   }
 
   return { isVideoAnalyzerReady, startProcess, stopProcess, result }

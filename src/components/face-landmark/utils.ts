@@ -15,3 +15,35 @@ export function calculatePolygonArea(vertices: NormalizedLandmark[]): number {
 
   return Math.abs(total)
 }
+
+export const calculateMean = (values: number[]): number => {
+  const length = values.length
+  if (!length) return 0
+
+  let sum = 0
+  for (let index = 0; index < length; index++) {
+    sum += values[index]
+  }
+
+  const mean = sum / length
+  return mean
+}
+
+export const calculateVariance = (values: number[]): number => {
+  const length = values.length
+  let squareDiffs = []
+
+  const average = calculateMean(values)
+  for (let index = 0; index < length; index++) {
+    const squareDiff = Math.pow(values[index] - average, 2)
+    squareDiffs.push(squareDiff)
+  }
+
+  const variance = calculateMean(squareDiffs)
+  return variance
+}
+
+// SD = Standard Division
+export const calculateStandardDivision = (values: number[]) => {
+  return Math.sqrt(calculateVariance(values))
+}
