@@ -1,10 +1,10 @@
-import { DrawingUtils, FaceLandmarker, FaceLandmarkerResult } from '@mediapipe/tasks-vision'
 import { type FC, useRef, useEffect, useState } from 'react'
+import { DrawingUtils, FaceLandmarker, FaceLandmarkerResult } from '@mediapipe/tasks-vision'
+import { LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer } from 'recharts'
+
 import styles from './index.module.scss'
 import { videoHeight, videoWidth } from './constants'
-// import useAudioClassifier from '../../hooks/useAudioClassifier'
 import useVideoLandmark from '../../hooks/useVideoLandmark'
-import { LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer } from 'recharts'
 
 const FaceLandmark: FC = () => {
   const video = useRef<HTMLVideoElement | null>(null)
@@ -12,14 +12,16 @@ const FaceLandmark: FC = () => {
   const [isVideoElementReady, setIsVideoElementReady] = useState(false)
   const [isStreamReady, setIsStreamReady] = useState(false)
   const [videoStreamFrameRate, setVideoStreamFrameRate] = useState(30)
+  const [canAnalyze, setCanAnalyze] = useState(false)
 
   const { isVideoAnalyzerReady, startProcess, stopProcess, result } = useVideoLandmark({
     drawLandmarks: drawResults,
     videoElement: video,
-    // canvasElement: canvasRef,
+    canvasElement: canvasRef,
+    samplingFrameRate: 10,
     videoStreamFrameRate,
     options: {
-      numFaces: 2,
+      numFaces: 4,
       minFacePresenceConfidence: 0.5,
       minFaceDetectionConfidence: 0.5,
       minTrackingConfidence: 0.5,
@@ -32,7 +34,7 @@ const FaceLandmark: FC = () => {
 
   useEffect(() => {
     if (isVideoAnalyzerReady && isStreamReady) {
-      startProcess()
+      setCanAnalyze(true)
     }
   }, [isVideoAnalyzerReady, isStreamReady])
 
@@ -87,6 +89,9 @@ const FaceLandmark: FC = () => {
           video.current = element
           setIsVideoElementReady(true)
         }}
+        style={{
+          transform: 'scaleX(-1)',
+        }}
         width={videoWidth}
         height={videoHeight}
       />
@@ -95,9 +100,11 @@ const FaceLandmark: FC = () => {
         ref={canvasRef}
         width={videoWidth}
         height={videoHeight}
-        style={{ border: '1px solid black' }}
+        style={{ border: '1px solid black', transform: 'scaleX(-1)' }}
       />
-      <button onClick={startProcess}>startProcess</button>
+      <button onClick={startProcess} disabled={!canAnalyze}>
+        startProcess
+      </button>
       <button onClick={stopProcess}>stopProcess</button>
       {/* <pre>{JSON.stringify(extractedData, null, 2)}</pre> */}
       <ResponsiveContainer width="100%" height="100%">

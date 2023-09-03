@@ -4,7 +4,7 @@ import type { FaceLandmarkerOptions, FaceLandmarkerResult, NormalizedLandmark } 
 
 import { FacePartsPolygon, videoHeight, videoWidth } from '../components/face-landmark/constants'
 import { calculateSampleRate } from './calculateSampleRate'
-import { calculatePolygonArea, calculateStandardDivision } from '../components/face-landmark/utils'
+import { calculateMean, calculatePolygonArea, calculateStandardDivision } from '../components/face-landmark/utils'
 
 type FaceLandmarkPartsCoordinates = {
   faceCoordinates: NormalizedLandmark[]
@@ -29,11 +29,7 @@ interface AcceptableResult {
 }
 interface UnacceptableResult {
   acceptable: false
-  // moreThenOneFace: boolean
-  // noFaceDetected: boolean
-  reason: 'moreThenOneFaceDetected' | 'noFaceDetected' | 'initializationError'
-  // change to sth better
-  // errorInCode: any
+  reason: 'moreThenOneFaceDetected' | 'noFaceDetected'
 }
 interface FrameAnalyzeResult {
   analyzeTime: number
@@ -41,6 +37,15 @@ interface FrameAnalyzeResult {
 }
 
 type LandmarkerOptions = Omit<FaceLandmarkerOptions, 'outputFacialTransformationMatrixes' | 'outputFaceBlendshapes'>
+
+type AnalyzeParameters =
+  | 'leftEyeRatioSD'
+  | 'rightEyeToFaceSD'
+  | 'lipsToFaceSD'
+  | 'eyeBlinkLeftSD'
+  | 'eyeBlinkRightSD'
+  | 'mouthFunnelSD'
+  | 'pixelsLightAverage'
 
 const reportUsefulKeys = ['eyeBlinkLeft', 'eyeBlinkRight', 'mouthFunnel']
 
@@ -50,6 +55,7 @@ type VideoLandmarkParameters = {
   canvasElement?: MutableRefObject<HTMLCanvasElement | null>
   options: LandmarkerOptions
   videoStreamFrameRate: number
+  samplingFrameRate: number
 }
 const useVideoLandmark = ({
   canvasElement,
@@ -57,6 +63,7 @@ const useVideoLandmark = ({
   drawLandmarks,
   options,
   videoStreamFrameRate,
+  samplingFrameRate,
 }: VideoLandmarkParameters) => {
   const [faceLandmarker, setFaceLandmarker] = useState<FaceLandmarker>()
   const [isVideoAnalyzerReady, setIsVideoAnalyzerReady] = useState<boolean>(false)
@@ -65,7 +72,7 @@ const useVideoLandmark = ({
 
   const { shouldProcessCurrentFrame } = calculateSampleRate({
     // each blink takes ~100ms and 10 fps is a appropriate number
-    samplingFrameRate: 10,
+    samplingFrameRate,
     videoStreamFrameRate,
   })
 
@@ -138,14 +145,15 @@ const useVideoLandmark = ({
         }
 
         if (results.faceLandmarks.length === 1) {
-          // only dev proposes
-          drawLandmarks && drawLandmarks(results)
           // checking canvasElement existence and calculating Brightness is
           // done separately so this hook can work event without this feature
           if (canvasElement?.current) {
             lightAverage = calculateBrightness(canvasElement.current, videoElement.current)
           }
-          // useful data for analyze
+          /**
+           * I looked at performance analyze that chrome provides to see if this process should be done after
+           * capturing the video and getting data from mediapipe but I didn't see any evidence proofs this is a heavy process
+           */
           const usefulData = extractUsefulData(results)
 
           frameAnalyzeResult = {
@@ -160,13 +168,14 @@ const useVideoLandmark = ({
             },
           }
         }
+        drawLandmarks && drawLandmarks(results)
+
         setResult((prev) => [...prev, frameAnalyzeResult])
       }
     } else {
       // log reason or report it to somewhere
     }
   }
-
   const calculateBrightness = (canvas: HTMLCanvasElement, video: HTMLVideoElement): number => {
     // Calculate brightness using average pixel value
     const context = canvas.getContext('2d')
@@ -241,65 +250,78 @@ const useVideoLandmark = ({
   }
 
   const generateReport = (result: FrameAnalyzeResult[]) => {
-    // (mouth + eye) visibility => SD
     const numberOfResults = result.length
-    // TODO: generic type
-    const resultsAsArray: Record<string, number[]> = {
-      leftEyeRatio: [],
-      rightEyeToFace: [],
-      lipsToFace: [],
-      eyeBlinkLeft: [],
-      eyeBlinkRight: [],
-      mouthFunnel: [],
-      analyzeTime: [],
-      lightAverage: [],
+
+    const arrayOfParameters: Record<AnalyzeParameters, number[]> = {
+      leftEyeRatioSD: [],
+      rightEyeToFaceSD: [],
+      lipsToFaceSD: [],
+      eyeBlinkLeftSD: [],
+      eyeBlinkRightSD: [],
+      mouthFunnelSD: [],
+      pixelsLightAverage: [],
     }
-    const errorsCounter = { moreThenOneFaceDetected: 0, noFaceDetected: 0 }
-    for (let index = 0; index < result.length; index++) {
+
+    const badFrameStatistics = {
+      moreThenOneFaceDetectedPercent: 0,
+      noFaceDetectedPercent: 0,
+    }
+
+    for (let index = 0; index < numberOfResults; index++) {
       const data = result[index]
       if (data.result.acceptable) {
-        resultsAsArray.leftEyeRatio.push(data.result.data.facePartsRatios.leftEyeToFace)
-        resultsAsArray.rightEyeToFace.push(data.result.data.facePartsRatios.rightEyeToFace)
-        resultsAsArray.lipsToFace.push(data.result.data.facePartsRatios.lipsToFace)
-        resultsAsArray.eyeBlinkLeft.push(data.result.data.blendshapes.eyeBlinkLeft)
-        resultsAsArray.eyeBlinkRight.push(data.result.data.blendshapes.eyeBlinkRight)
-        resultsAsArray.mouthFunnel.push(data.result.data.blendshapes.mouthFunnel)
-        resultsAsArray.analyzeTime.push(data.analyzeTime)
-        resultsAsArray.lightAverage.push(data.result.data.lightAverage)
+        arrayOfParameters.leftEyeRatioSD.push(data.result.data.facePartsRatios.leftEyeToFace)
+        arrayOfParameters.rightEyeToFaceSD.push(data.result.data.facePartsRatios.rightEyeToFace)
+        arrayOfParameters.lipsToFaceSD.push(data.result.data.facePartsRatios.lipsToFace)
+        arrayOfParameters.eyeBlinkLeftSD.push(data.result.data.blendshapes.eyeBlinkLeft)
+        arrayOfParameters.eyeBlinkRightSD.push(data.result.data.blendshapes.eyeBlinkRight)
+        arrayOfParameters.mouthFunnelSD.push(data.result.data.blendshapes.mouthFunnel)
+        arrayOfParameters.pixelsLightAverage.push(data.result.data.lightAverage)
       } else {
-        if (data.result.reason === 'moreThenOneFaceDetected') errorsCounter.moreThenOneFaceDetected++
-        if (data.result.reason === 'noFaceDetected') errorsCounter.noFaceDetected++
+        if (data.result.reason === 'moreThenOneFaceDetected') {
+          // instead of summing numbers and then dividing them to calculate the percentage I just
+          // added their percent share with "100 / numberOfResults"
+          badFrameStatistics.moreThenOneFaceDetectedPercent =
+            badFrameStatistics.moreThenOneFaceDetectedPercent + 100 / numberOfResults
+        }
+        if (data.result.reason === 'noFaceDetected') {
+          badFrameStatistics.noFaceDetectedPercent = badFrameStatistics.noFaceDetectedPercent + 100 / numberOfResults
+        }
       }
     }
-    const reasonsSD: Record<string, number> = {}
 
-    for (let key in resultsAsArray) {
-      reasonsSD[key] = calculateStandardDivision(resultsAsArray[key])
+    const parametersForAnalyze: Record<AnalyzeParameters, number> = {
+      leftEyeRatioSD: 0,
+      rightEyeToFaceSD: 0,
+      lipsToFaceSD: 0,
+      eyeBlinkLeftSD: 0,
+      eyeBlinkRightSD: 0,
+      mouthFunnelSD: 0,
+      pixelsLightAverage: 0,
     }
 
-    console.log('reasonsSD', { reasonsSD })
+    for (let key in arrayOfParameters) {
+      parametersForAnalyze[key as AnalyzeParameters] =
+        key !== 'pixelsLightAverage'
+          ? calculateStandardDivision(arrayOfParameters[key as AnalyzeParameters])
+          : calculateMean(arrayOfParameters[key])
+    }
+
+    return { parametersForAnalyze, badFrameStatistics }
   }
 
   const startProcess = () => {
     isProcessActive.current = true
+    setResult([])
     analyzeVideo()
   }
+
   const stopProcess = () => {
     isProcessActive.current = false
-
-    generateReport(result)
+    return generateReport(result)
   }
 
   return { isVideoAnalyzerReady, startProcess, stopProcess, result }
 }
 
 export default useVideoLandmark
-
-/**
- * existance of both eyes
- * change in eye
- * change in mouth
- * check blink
- * check number of mouth
- * depth ????
- */
