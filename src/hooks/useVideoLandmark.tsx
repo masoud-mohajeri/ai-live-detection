@@ -321,7 +321,7 @@ const useVideoLandmark = ({
     return generateReport(result)
   }
 
-  return { isVideoAnalyzerReady, startProcess, stopProcess, result }
+  return { isVideoAnalyzerReady, startProcess, stopProcess }
 }
 
 export default useVideoLandmark

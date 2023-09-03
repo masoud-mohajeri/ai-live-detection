@@ -14,7 +14,7 @@ const FaceLandmark: FC = () => {
   const [videoStreamFrameRate, setVideoStreamFrameRate] = useState(30)
   const [canAnalyze, setCanAnalyze] = useState(false)
 
-  const { isVideoAnalyzerReady, startProcess, stopProcess, result } = useVideoLandmark({
+  const { isVideoAnalyzerReady, startProcess, stopProcess } = useVideoLandmark({
     drawLandmarks: drawResults,
     videoElement: video,
     canvasElement: canvasRef,
