@@ -1,6 +1,5 @@
 import { type FC, useRef, useEffect, useState } from 'react'
 import { DrawingUtils, FaceLandmarker, FaceLandmarkerResult } from '@mediapipe/tasks-vision'
-import { LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer } from 'recharts'
 
 import styles from './index.module.scss'
 import { videoHeight, videoWidth } from './constants'
@@ -15,7 +14,7 @@ const FaceLandmark: FC = () => {
   const [canAnalyze, setCanAnalyze] = useState(false)
 
   const { isVideoAnalyzerReady, startProcess, stopProcess } = useVideoLandmark({
-    drawLandmarks: drawResults,
+    onResult: drawResults,
     videoElement: video,
     canvasElement: canvasRef,
     samplingFrameRate: 10,

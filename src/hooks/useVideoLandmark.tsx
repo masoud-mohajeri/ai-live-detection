@@ -50,7 +50,8 @@ type AnalyzeParameters =
 const reportUsefulKeys = ['eyeBlinkLeft', 'eyeBlinkRight', 'mouthFunnel']
 
 type VideoLandmarkParameters = {
-  drawLandmarks?: (arg: FaceLandmarkerResult) => void
+  // perfered for dev use cases
+  onResult?: (arg: FaceLandmarkerResult) => void
   videoElement: MutableRefObject<HTMLVideoElement | null>
   canvasElement?: MutableRefObject<HTMLCanvasElement | null>
   options: LandmarkerOptions
@@ -60,10 +61,10 @@ type VideoLandmarkParameters = {
 const useVideoLandmark = ({
   canvasElement,
   videoElement,
-  drawLandmarks,
+  onResult,
   options,
-  videoStreamFrameRate,
-  samplingFrameRate,
+  videoStreamFrameRate = 30,
+  samplingFrameRate = 10,
 }: VideoLandmarkParameters) => {
   const [faceLandmarker, setFaceLandmarker] = useState<FaceLandmarker>()
   const [isVideoAnalyzerReady, setIsVideoAnalyzerReady] = useState<boolean>(false)
@@ -71,7 +72,7 @@ const useVideoLandmark = ({
   const [result, setResult] = useState<FrameAnalyzeResult[]>([])
 
   const { shouldProcessCurrentFrame } = calculateSampleRate({
-    // each blink takes ~100ms and 10 fps is a appropriate number
+    // each blink takes ~100ms and 10 fps so 10 is a appropriate number
     samplingFrameRate,
     videoStreamFrameRate,
   })
@@ -86,7 +87,6 @@ const useVideoLandmark = ({
   }
 
   const faceLandmarkFactory = async () => {
-    console.log('faceLandmarkFactory')
     try {
       // TODO: Add loading
       const vision = await FilesetResolver.forVisionTasks(
@@ -95,7 +95,6 @@ const useVideoLandmark = ({
       )
       const faceLandmarkerInstance = await FaceLandmarker.createFromOptions(vision, {
         baseOptions: {
-          //TODO: add version to this files do I can cache them for long term
           // `https://storage.googleapis.com/mediapipe-models/face_landmarker/face_landmarker/float16/1/face_landmarker.task`,
           modelAssetPath: 'http://localhost:3000/mediapipe@0.10.3/face_landmarker.task',
           // INFO: Created TensorFlow Lite XNNPACK delegate for CPU -> its just info
@@ -168,14 +167,14 @@ const useVideoLandmark = ({
             },
           }
         }
-        drawLandmarks && drawLandmarks(results)
-
+        onResult && onResult(results)
         setResult((prev) => [...prev, frameAnalyzeResult])
       }
     } else {
       // log reason or report it to somewhere
     }
   }
+
   const calculateBrightness = (canvas: HTMLCanvasElement, video: HTMLVideoElement): number => {
     // Calculate brightness using average pixel value
     const context = canvas.getContext('2d')
