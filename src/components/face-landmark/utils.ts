@@ -1,4 +1,5 @@
-import { NormalizedLandmark } from '@mediapipe/tasks-vision'
+import type { NormalizedLandmark } from '@mediapipe/tasks-vision'
+
 // https://stackoverflow.com/questions/16285134/calculating-polygon-area
 export function calculatePolygonArea(vertices: NormalizedLandmark[]): number {
   let total = 0

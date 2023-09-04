@@ -20,7 +20,8 @@ type FaceRatios = {
 }
 
 interface AcceptableResult {
-  acceptable: true
+  // this field is not boolean so I can use this great feature of discriminated unins
+  notarizationFrameStatus: 'ACCEPTABLE'
   data: {
     blendshapes: Record<string, number>
     facePartsRatios: FaceRatios
@@ -28,8 +29,8 @@ interface AcceptableResult {
   }
 }
 interface UnacceptableResult {
-  acceptable: false
-  reason: 'moreThenOneFaceDetected' | 'noFaceDetected'
+  notarizationFrameStatus: 'UNACCEPTABLE'
+  rejectionReason: 'moreThenOneFaceDetected' | 'noFaceDetected'
 }
 interface FrameAnalyzeResult {
   analyzeTime: number
@@ -91,12 +92,12 @@ const useVideoLandmark = ({
       // TODO: Add loading
       const vision = await FilesetResolver.forVisionTasks(
         // 'https://cdn.jsdelivr.net/npm/@mediapipe/tasks-vision@0.10.3/wasm',
-        'http://localhost:3000/mediapipe@0.10.3',
+        window.location.origin + '/mediapipe@0.10.3',
       )
       const faceLandmarkerInstance = await FaceLandmarker.createFromOptions(vision, {
         baseOptions: {
           // `https://storage.googleapis.com/mediapipe-models/face_landmarker/face_landmarker/float16/1/face_landmarker.task`,
-          modelAssetPath: 'http://localhost:3000/mediapipe@0.10.3/face_landmarker.task',
+          modelAssetPath: window.location.origin + '/mediapipe@0.10.3/face_landmarker.task',
           // INFO: Created TensorFlow Lite XNNPACK delegate for CPU -> its just info
           // other things (e.g: dom stuff) get a little slow when it is on cpu
           delegate: 'GPU',
@@ -117,18 +118,18 @@ const useVideoLandmark = ({
   }, [])
 
   const analyzeFrame = async () => {
-    let currentFrameTime = Date.now()
+    const currentFrameTime = Date.now()
     if (faceLandmarker && videoElement.current && shouldProcessCurrentFrame()) {
-      let results = faceLandmarker?.detectForVideo(videoElement.current, currentFrameTime)
+      const results = faceLandmarker?.detectForVideo(videoElement.current, currentFrameTime)
       if (results && Array.isArray(results.faceLandmarks)) {
         let frameAnalyzeResult: FrameAnalyzeResult
-        let lightAverage: number = 0
+        let lightAverage = 0
         if (results.faceLandmarks.length === 0) {
           frameAnalyzeResult = {
             analyzeTime: currentFrameTime,
             result: {
-              acceptable: false,
-              reason: 'noFaceDetected',
+              notarizationFrameStatus: 'UNACCEPTABLE',
+              rejectionReason: 'noFaceDetected',
             },
           }
         }
@@ -137,8 +138,8 @@ const useVideoLandmark = ({
           frameAnalyzeResult = {
             analyzeTime: currentFrameTime,
             result: {
-              acceptable: false,
-              reason: 'moreThenOneFaceDetected',
+              notarizationFrameStatus: 'UNACCEPTABLE',
+              rejectionReason: 'moreThenOneFaceDetected',
             },
           }
         }
@@ -158,7 +159,7 @@ const useVideoLandmark = ({
           frameAnalyzeResult = {
             analyzeTime: currentFrameTime,
             result: {
-              acceptable: true,
+              notarizationFrameStatus: 'ACCEPTABLE',
               data: {
                 blendshapes: usefulData.blendShapes,
                 lightAverage,
@@ -199,7 +200,7 @@ const useVideoLandmark = ({
   const pickPolygonPoints = (polygon: NormalizedLandmark[], demandedIndexes: number[]): NormalizedLandmark[] => {
     const results = []
     // for loops are 3 times faster than any array iteration method
-    for (let key of demandedIndexes) {
+    for (const key of demandedIndexes) {
       results.push(polygon[key])
     }
     return results
@@ -220,7 +221,7 @@ const useVideoLandmark = ({
     )
     const usefulBlendShapes: Record<string, number> = {}
 
-    for (let item of usefulBlendShapesList) {
+    for (const item of usefulBlendShapesList) {
       usefulBlendShapes[item.categoryName] = +item.score.toFixed(3)
     }
 
@@ -268,7 +269,7 @@ const useVideoLandmark = ({
 
     for (let index = 0; index < numberOfResults; index++) {
       const data = result[index]
-      if (data.result.acceptable) {
+      if (data.result.notarizationFrameStatus === 'ACCEPTABLE') {
         arrayOfParameters.leftEyeRatioSD.push(data.result.data.facePartsRatios.leftEyeToFace)
         arrayOfParameters.rightEyeToFaceSD.push(data.result.data.facePartsRatios.rightEyeToFace)
         arrayOfParameters.lipsToFaceSD.push(data.result.data.facePartsRatios.lipsToFace)
@@ -277,13 +278,13 @@ const useVideoLandmark = ({
         arrayOfParameters.mouthFunnelSD.push(data.result.data.blendshapes.mouthFunnel)
         arrayOfParameters.pixelsLightAverage.push(data.result.data.lightAverage)
       } else {
-        if (data.result.reason === 'moreThenOneFaceDetected') {
+        if (data.result.rejectionReason === 'moreThenOneFaceDetected') {
           // instead of summing numbers and then dividing them to calculate the percentage I just
           // added their percent share with "100 / numberOfResults"
           badFrameStatistics.moreThenOneFaceDetectedPercent =
             badFrameStatistics.moreThenOneFaceDetectedPercent + 100 / numberOfResults
         }
-        if (data.result.reason === 'noFaceDetected') {
+        if (data.result.rejectionReason === 'noFaceDetected') {
           badFrameStatistics.noFaceDetectedPercent = badFrameStatistics.noFaceDetectedPercent + 100 / numberOfResults
         }
       }
@@ -299,7 +300,7 @@ const useVideoLandmark = ({
       pixelsLightAverage: 0,
     }
 
-    for (let key in arrayOfParameters) {
+    for (const key in arrayOfParameters) {
       parametersForAnalyze[key as AnalyzeParameters] =
         key !== 'pixelsLightAverage'
           ? calculateStandardDivision(arrayOfParameters[key as AnalyzeParameters])
