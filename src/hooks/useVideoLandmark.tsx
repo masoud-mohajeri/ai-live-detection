@@ -91,13 +91,13 @@ const useVideoLandmark = ({
       // TODO: Add loading
       const vision = await FilesetResolver.forVisionTasks(
         // 'https://cdn.jsdelivr.net/npm/@mediapipe/tasks-vision@0.10.3/wasm',
-        'http://localhost:3000/mediapipe',
+        'http://localhost:3000/mediapipe@0.10.3',
       )
       const faceLandmarkerInstance = await FaceLandmarker.createFromOptions(vision, {
         baseOptions: {
           //TODO: add version to this files do I can cache them for long term
           // `https://storage.googleapis.com/mediapipe-models/face_landmarker/face_landmarker/float16/1/face_landmarker.task`,
-          modelAssetPath: 'http://localhost:3000/mediapipe/face_landmarker.task',
+          modelAssetPath: 'http://localhost:3000/mediapipe@0.10.3/face_landmarker.task',
           // INFO: Created TensorFlow Lite XNNPACK delegate for CPU -> its just info
           // other things (e.g: dom stuff) get a little slow when it is on cpu
           delegate: 'GPU',
