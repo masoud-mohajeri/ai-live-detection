@@ -1,15 +1,22 @@
-.contatiner {
+.container {
   // position: relative;
   width: 640px;
   height: 370px;
   margin-bottom: 30px;
   margin-top: 500px;
 }
+
 .video,
 .canvas {
   position: absolute;
   left: 30px;
   top: 30px;
+  transform: scaleX(-1);
+}
+
+.canvas {
+  border: 1px solid black;
+  transform: scaleX(-1);
 }
 
 pre {

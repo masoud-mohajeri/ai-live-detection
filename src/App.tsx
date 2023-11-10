@@ -1,15 +1,7 @@
-// import AudioClassification from './components/audio-classification/v1.index'
-import FaceLandmark from './components/face-landmark/v2.index'
-// import WebAudioApi from './components/web-audio-api'
+import { FaceLandmark } from './components'
 
 function App() {
-  return (
-    <>
-      <FaceLandmark />
-      {/* <AudioClassification /> */}
-      {/* <WebAudioApi /> */}
-    </>
-  )
+  return <FaceLandmark />
 }
 
 export default App
