@@ -74,7 +74,7 @@ export const useVideoLandmark = ({ videoElement, onResult }: VideoLandmarkParame
 
   const { shouldAnalyzeCurrentFrame } = calculateFrameAnalyzeRate({
     // each blink takes ~100ms and 10 fps so 10 is a appropriate number
-    samplingRate: 10,
+    samplingRate: 12,
   })
 
   function analyzeVideo() {

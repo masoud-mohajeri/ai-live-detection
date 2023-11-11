@@ -15,8 +15,9 @@ export const FaceLandmark: FC = () => {
   const canvasRef = useRef<HTMLCanvasElement | null>(null)
   const [isVideoElementReady, setIsVideoElementReady] = useState(false)
   const [isStreamReady, setIsStreamReady] = useState(false)
-  const [canAnalyze, setCanAnalyze] = useState(false)
+  // const [canAnalyze, setCanAnalyze] = useState(false)
   const [result, setResult] = useState<LandmarksDataToPresent[]>([])
+  const [pageState, setPageState] = useState<'idle' | 'processing' | 'loading'>('loading')
 
   const { isVideoAnalyzerReady, startProcess, stopProcess } = useVideoLandmark({
     onResult: ({ analyzeResults, faceLandmarkerResult }) => {
@@ -32,7 +33,7 @@ export const FaceLandmark: FC = () => {
 
   useEffect(() => {
     if (isVideoAnalyzerReady && isStreamReady) {
-      setCanAnalyze(true)
+      setPageState('idle')
     }
   }, [isVideoAnalyzerReady, isStreamReady])
 
@@ -54,8 +55,8 @@ export const FaceLandmark: FC = () => {
     video.current?.addEventListener(
       'loadeddata',
       () => {
-        if (!video?.current) return
-        video.current.play()
+        // if (!video?.current) return
+        video?.current?.play()
         setIsStreamReady(true)
       },
       { once: true },
@@ -73,6 +74,13 @@ export const FaceLandmark: FC = () => {
     })
   }
 
+  const clearCanvas = () => {
+    if (!canvasRef.current) return
+    const ctx = canvasRef.current.getContext('2d')
+    if (!ctx) return
+    ctx?.clearRect(0, 0, videoWidth, videoHeight)
+  }
+
   function drawFaceLandmarks(faceLandmarkerResult: FaceLandmarkerResult) {
     if (!canvasRef.current) return
     const ctx = canvasRef.current.getContext('2d')
@@ -81,11 +89,23 @@ export const FaceLandmark: FC = () => {
     const drawingUtils = new DrawingUtils(ctx)
 
     for (const landmarks of faceLandmarkerResult?.faceLandmarks) {
-      drawingUtils.drawConnectors(landmarks, FaceLandmarker.FACE_LANDMARKS_RIGHT_EYE, { color: '#FF3030' })
-      drawingUtils.drawConnectors(landmarks, FaceLandmarker.FACE_LANDMARKS_LEFT_EYE, { color: '#30FF30' })
+      drawingUtils.drawConnectors(landmarks, FaceLandmarker.FACE_LANDMARKS_RIGHT_EYE, { color: '#E0E0E0' })
+      drawingUtils.drawConnectors(landmarks, FaceLandmarker.FACE_LANDMARKS_LEFT_EYE, { color: '#E0E0E0' })
       drawingUtils.drawConnectors(landmarks, FaceLandmarker.FACE_LANDMARKS_FACE_OVAL, { color: '#E0E0E0' })
       drawingUtils.drawConnectors(landmarks, FaceLandmarker.FACE_LANDMARKS_LIPS, { color: '#E0E0E0' })
     }
+  }
+
+  const onStopProcess = () => {
+    setPageState('idle')
+    stopProcess()
+    clearCanvas()
+  }
+
+  const onStartProcess = () => {
+    if (pageState !== 'idle') return
+    setPageState('processing')
+    startProcess()
   }
 
   return (
@@ -100,12 +120,11 @@ export const FaceLandmark: FC = () => {
         height={videoHeight}
       />
       <canvas className={styles.canvas} ref={canvasRef} width={videoWidth} height={videoHeight} />
-      <button onClick={startProcess} disabled={!canAnalyze}>
-        startProcess
-      </button>
-      <button onClick={stopProcess}>stopProcess</button>
-      <LineChart data={result} keysToPresent={['mouthFunnel', 'eyeBlinkLeft', 'eyeBlinkRight']} />
-      <LineChart data={result} keysToPresent={['leftEyeToFace', 'lipsToFace', 'rightEyeToFace']} />
+      <button onClick={onStartProcess}>startProcess</button>
+      <button onClick={onStopProcess}>stopProcess</button>
+      <LineChart data={result} keysToPresent={['mouthFunnel', 'lipsToFace']} title="Mouth" />
+      <LineChart data={result} keysToPresent={['eyeBlinkLeft', 'eyeBlinkRight']} title="Eyes - blendshape" />
+      <LineChart data={result} keysToPresent={['leftEyeToFace', 'rightEyeToFace']} title="Eyes - Areas" />
     </div>
   )
 }
